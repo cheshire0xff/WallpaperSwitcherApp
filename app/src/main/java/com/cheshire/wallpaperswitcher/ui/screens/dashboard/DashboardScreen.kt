@@ -65,8 +65,8 @@ fun DashboardScreen(
     if (showDetails) {
         FolderDetailsDialog(
             totalImages = viewModel.cachedImages.size,
-            seenCount = viewModel.seenImageUris.size,
-            favoritesCount = viewModel.favorites.size,
+            seenCount = viewModel.seenImageNames.size,
+            favoritesCount = viewModel.favoriteNames.size,
             folderUri = viewModel.folderUri,
             onResetSeen = { viewModel.resetSeen() },
             onDismiss = { showDetails = false }
@@ -89,7 +89,7 @@ fun DashboardScreen(
             CurrentWallpaperCard(
                 name = viewModel.currentWallpaperName,
                 uri = viewModel.currentWallpaperUri,
-                isFavorite = viewModel.currentWallpaperUri?.toString() in viewModel.favorites,
+                isFavorite = viewModel.currentWallpaperName in viewModel.favoriteNames,
                 isCaching = viewModel.isCaching,
                 onToggleFavorite = { viewModel.toggleFavorite() },
                 onEnlarge = { _, _ -> /* enlargement handled inside CurrentWallpaperCard or passed up */ }
@@ -126,14 +126,14 @@ fun DashboardScreen(
                 OutlinedButton(
                     onClick = { onNavigate(Screen.Favorites) },
                     modifier = Modifier.weight(1f),
-                    enabled = viewModel.favorites.isNotEmpty()
+                    enabled = viewModel.favoriteNames.isNotEmpty()
                 ) {
                     Text("Favs", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 }
                 OutlinedButton(
                     onClick = { onNavigate(Screen.History) },
                     modifier = Modifier.weight(1f),
-                    enabled = viewModel.seenImageUris.isNotEmpty()
+                    enabled = viewModel.seenImageNames.isNotEmpty()
                 ) {
                     Text("History", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 }

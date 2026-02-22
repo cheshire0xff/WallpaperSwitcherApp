@@ -91,7 +91,9 @@ fun WallpaperSwitcherApp(
             )
         }
         Screen.Favorites -> {
-            val favImages = viewModel.cachedImages.filter { it.first.toString() in viewModel.favorites }
+            val favImages = viewModel.favoriteNames.mapNotNull { name ->
+                viewModel.getUriForName(name)?.let { it to name }
+            }
             ImageGridScreen(
                 title = "Favorites",
                 images = favImages,
@@ -100,7 +102,9 @@ fun WallpaperSwitcherApp(
             )
         }
         Screen.History -> {
-            val historyImages = viewModel.cachedImages.filter { it.first.toString() in viewModel.seenImageUris }
+            val historyImages = viewModel.seenImageNames.mapNotNull { name ->
+                viewModel.getUriForName(name)?.let { it to name }
+            }
             ImageGridScreen(
                 title = "History (Already Seen)",
                 images = historyImages,

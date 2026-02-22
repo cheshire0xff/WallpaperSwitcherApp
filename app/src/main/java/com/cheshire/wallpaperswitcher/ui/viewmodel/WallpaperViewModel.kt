@@ -20,10 +20,13 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
         private set
     var currentWallpaperUri by mutableStateOf<Uri?>(null)
         private set
-    var seenImageUris by mutableStateOf<Set<String>>(emptySet())
+    var seenImageNames by mutableStateOf<Set<String>>(emptySet())
         private set
-    var favorites by mutableStateOf<Set<String>>(emptySet())
+    var favoriteNames by mutableStateOf<Set<String>>(emptySet())
         private set
+
+    // Map of filename -> Uri for quick lookup
+    private var imageMap = emptyMap<String, Uri>()
 
     // Exposed for the images screen
     var shuffledQueue by mutableStateOf<List<Pair<Uri, String>>>(emptyList())
@@ -36,8 +39,8 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
         folderUri = repository.getFolderUri()
         currentWallpaperName = repository.getCurrentWallpaperName()
         currentWallpaperUri = repository.getCurrentWallpaperUri()
-        seenImageUris = repository.getSeenImages()
-        favorites = repository.getFavoriteImages()
+        seenImageNames = repository.getSeenImages()
+        favoriteNames = repository.getFavoriteImages()
 
         folderUri?.let { refreshCache() }
     }
@@ -61,8 +64,11 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
                 repository.refreshCache(uri)
             }
             
+            // Build the map: filename -> Uri
+            imageMap = cachedImages.associate { it.second to it.first }
+            
             // Sync the playlist with the new image list and current history
-            playlist.updateData(cachedImages, seenImageUris)
+            playlist.updateData(cachedImages, seenImageNames)
             shuffledQueue = playlist.getQueue()
             
             if (currentWallpaperUri == null && cachedImages.isNotEmpty()) {
@@ -78,7 +84,7 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
         currentWallpaperUri = pair.first
         currentWallpaperName = pair.second
         
-        markAsSeen(pair.first)
+        markAsSeen(pair.second)
         repository.updateCurrentWallpaper(pair.first, pair.second)
     }
 
@@ -102,7 +108,7 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
             currentWallpaperUri = pair.first
             currentWallpaperName = pair.second
             
-            markAsSeen(pair.first)
+            markAsSeen(pair.second)
             repository.updateCurrentWallpaper(pair.first, pair.second)
         }
     }
@@ -112,7 +118,7 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
             currentWallpaperUri = pair.first
             currentWallpaperName = pair.second
             
-            markAsSeen(pair.first)
+            markAsSeen(pair.second)
             repository.updateCurrentWallpaper(pair.first, pair.second)
             
             // Remove from queue if it was there
@@ -121,33 +127,35 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
         }
     }
     
-    private fun markAsSeen(uri: Uri) {
-        val uriStr = uri.toString()
-        if (uriStr !in seenImageUris) {
-            val newSeen = seenImageUris + uriStr
-            seenImageUris = newSeen
+    private fun markAsSeen(name: String) {
+        if (name !in seenImageNames) {
+            val newSeen = seenImageNames + name
+            seenImageNames = newSeen
             repository.saveSeenImages(newSeen)
             playlist.updateSeenHistory(newSeen)
         }
     }
 
     fun toggleFavorite() {
-        val uriStr = currentWallpaperUri?.toString() ?: return
-        val newFavorites = if (uriStr in favorites) {
-            favorites - uriStr
+        val name = currentWallpaperName ?: return
+        val newFavorites = if (name in favoriteNames) {
+            favoriteNames - name
         } else {
-            favorites + uriStr
+            favoriteNames + name
         }
-        favorites = newFavorites
+        favoriteNames = newFavorites
         repository.saveFavorites(newFavorites)
     }
 
     fun resetSeen() {
-        seenImageUris = emptySet()
+        seenImageNames = emptySet()
         repository.saveSeenImages(emptySet())
         playlist.updateSeenHistory(emptySet())
         shuffledQueue = playlist.getQueue()
     }
+
+    // Helper for UI to get URIs from names (for fav/seen grids)
+    fun getUriForName(name: String): Uri? = imageMap[name]
 }
 
 /**
@@ -156,7 +164,7 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
  */
 private class WallpaperPlaylist {
     private var allImages: List<Pair<Uri, String>> = emptyList()
-    private var seenUris: Set<String> = emptySet()
+    private var seenNames: Set<String> = emptySet()
     private val queue = mutableListOf<Pair<Uri, String>>()
 
     /**
@@ -164,7 +172,7 @@ private class WallpaperPlaylist {
      */
     fun updateData(all: List<Pair<Uri, String>>, seen: Set<String>) {
         allImages = all
-        seenUris = seen
+        seenNames = seen
         regenerateQueue()
     }
 
@@ -172,13 +180,13 @@ private class WallpaperPlaylist {
      * Updates the history set. If the history is cleared, regens the queue immediately.
      */
     fun updateSeenHistory(seen: Set<String>) {
-        seenUris = seen
+        seenNames = seen
         if (seen.isEmpty()) regenerateQueue()
     }
 
     private fun regenerateQueue() {
         queue.clear()
-        queue.addAll(allImages.filter { it.first.toString() !in seenUris }.shuffled())
+        queue.addAll(allImages.filter { it.second !in seenNames }.shuffled())
     }
 
     /**

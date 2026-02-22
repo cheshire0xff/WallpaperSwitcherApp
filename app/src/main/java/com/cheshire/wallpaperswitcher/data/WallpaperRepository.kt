@@ -169,11 +169,11 @@ class WallpaperRepository(private val context: Context) {
         context.sendBroadcast(updateIntent)
     }
 
-    fun saveSeenImages(seen: Set<String>) {
-        saveSetToFile(SEEN_IMAGES_FILE, seen)
+    fun saveSeenImages(seenNames: Set<String>) {
+        saveSetToFile(SEEN_IMAGES_FILE, seenNames)
     }
 
-    fun saveFavorites(favs: Set<String>) {
-        saveSetToFile(FAVORITES_FILE, favs)
+    fun saveFavorites(favNames: Set<String>) {
+        saveSetToFile(FAVORITES_FILE, favNames)
     }
 }
