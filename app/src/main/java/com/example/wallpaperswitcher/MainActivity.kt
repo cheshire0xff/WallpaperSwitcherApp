@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import androidx.core.net.toUri
@@ -302,6 +303,7 @@ fun WallpaperSwitcherScreen(
 ) {
     val context = LocalContext.current
     var isEngineEnabled by remember { mutableStateOf(isWallpaperEngineActive(context)) }
+    var showDetails by remember { mutableStateOf(false) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -333,6 +335,29 @@ fun WallpaperSwitcherScreen(
                 Log.e(TAG, "Failed to take persistable permission", e)
             }
         }
+    }
+
+    if (showDetails) {
+        AlertDialog(
+            onDismissRequest = { showDetails = false },
+            title = { Text("Folder Details") },
+            text = {
+                Column {
+                    Text("Images Loaded: $cachedImagesCount", fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Path:", fontWeight = FontWeight.Bold)
+                    Text(
+                        text = folderUri?.let { Uri.decode(it.toString()) } ?: "None",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDetails = false }) {
+                    Text("Close")
+                }
+            }
+        )
     }
 
     Column(
@@ -374,7 +399,9 @@ fun WallpaperSwitcherScreen(
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -423,6 +450,15 @@ fun WallpaperSwitcherScreen(
                 modifier = Modifier.fillMaxWidth().height(56.dp)
             ) {
                 Text("Next Wallpaper")
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            OutlinedButton(
+                onClick = { showDetails = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Folder Details")
             }
 
             OutlinedButton(
