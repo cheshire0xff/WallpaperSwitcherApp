@@ -24,8 +24,8 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
     var favorites by mutableStateOf<Set<String>>(emptySet())
         private set
 
-    // A pre-shuffled list of images that haven't been seen yet.
-    private var shuffledUnseenImages = mutableListOf<Pair<Uri, String>>()
+    // Manages the shuffling and non-repeating queue logic
+    private val playlist = WallpaperPlaylist()
 
     init {
         folderUri = repository.getFolderUri()
@@ -50,53 +50,28 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
             val currentModified = repository.getDirectoryLastModified(uri)
             val loadedCache = repository.loadCache()
 
-            if (currentModified != -1L && currentModified == lastStoredModified && loadedCache.isNotEmpty()) {
-                cachedImages = loadedCache
-                prepareShuffledList()
-                if (currentWallpaperUri == null && cachedImages.isNotEmpty()) {
-                    setInitialWallpaper()
-                }
-                isCaching = false
+            cachedImages = if (currentModified != -1L && currentModified == lastStoredModified && loadedCache.isNotEmpty()) {
+                loadedCache
             } else {
-                cachedImages = repository.refreshCache(uri)
-                prepareShuffledList()
-                if (currentWallpaperUri == null && cachedImages.isNotEmpty()) {
-                    setInitialWallpaper()
-                }
-                isCaching = false
+                repository.refreshCache(uri)
             }
+            
+            // Sync the playlist with the new image list and current history
+            playlist.updateData(cachedImages, seenImageUris)
+            
+            if (currentWallpaperUri == null && cachedImages.isNotEmpty()) {
+                setInitialWallpaper()
+            }
+            isCaching = false
         }
-    }
-
-    /**
-     * Filters the cached images to find those not yet seen, shuffles them,
-     * and stores them in shuffledUnseenImages.
-     */
-    private fun prepareShuffledList() {
-        val unseen = cachedImages.filter { it.first.toString() !in seenImageUris }
-        shuffledUnseenImages = unseen.shuffled().toMutableList()
     }
 
     private fun setInitialWallpaper() {
-        if (cachedImages.isEmpty()) return
-        
-        // Use the shuffled list if available, otherwise fallback to cache
-        val pair = if (shuffledUnseenImages.isNotEmpty()) {
-            shuffledUnseenImages.removeAt(0)
-        } else {
-            cachedImages.random()
-        }
-        
+        val pair = playlist.getNext() ?: return
         currentWallpaperUri = pair.first
         currentWallpaperName = pair.second
         
-        // If we picked from shuffled, mark it as seen
-        if (pair.first.toString() !in seenImageUris) {
-            val newSeen = seenImageUris + pair.first.toString()
-            seenImageUris = newSeen
-            repository.saveSeenImages(newSeen)
-        }
-        
+        markAsSeen(pair.first)
         repository.updateCurrentWallpaper(pair.first, pair.second)
     }
 
@@ -104,31 +79,32 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
         if (cachedImages.isEmpty()) return
 
         viewModelScope.launch {
-            // If our pre-shuffled list is empty, regenerate it
-            if (shuffledUnseenImages.isEmpty()) {
-                val unseen = cachedImages.filter { it.first.toString() !in seenImageUris }
-                if (unseen.isEmpty()) {
-                    // All images seen, reset history and shuffle everything
-                    resetSeen()
-                    shuffledUnseenImages = cachedImages.shuffled().toMutableList()
-                } else {
-                    shuffledUnseenImages = unseen.shuffled().toMutableList()
-                }
+            var pair = playlist.getNext()
+            
+            if (pair == null) {
+                // All images in the current cycle seen, reset history and start over
+                resetSeen()
+                pair = playlist.getNext() ?: return@launch
             }
 
-            // Pick the next one from the top of the shuffled list
-            val (randomUri, name) = shuffledUnseenImages.removeAt(0)
+            // Resolution check (logged in repository)
+            repository.getImageResolution(pair.first)
             
-            // Log resolution (as requested previously)
-            repository.getImageResolution(randomUri)
+            currentWallpaperUri = pair.first
+            currentWallpaperName = pair.second
             
-            val newSeen = seenImageUris + randomUri.toString()
+            markAsSeen(pair.first)
+            repository.updateCurrentWallpaper(pair.first, pair.second)
+        }
+    }
+    
+    private fun markAsSeen(uri: Uri) {
+        val uriStr = uri.toString()
+        if (uriStr !in seenImageUris) {
+            val newSeen = seenImageUris + uriStr
             seenImageUris = newSeen
             repository.saveSeenImages(newSeen)
-
-            currentWallpaperUri = randomUri
-            currentWallpaperName = name
-            repository.updateCurrentWallpaper(randomUri, name)
+            playlist.updateSeenHistory(newSeen)
         }
     }
 
@@ -146,7 +122,50 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
     fun resetSeen() {
         seenImageUris = emptySet()
         repository.saveSeenImages(emptySet())
-        // Immediately regen the shuffled list since we reset the seen history
-        prepareShuffledList()
+        playlist.updateSeenHistory(emptySet())
+    }
+}
+
+/**
+ * Internal helper class that manages a shuffled queue of images.
+ * It automatically regens the queue when empty based on the unseen subset.
+ */
+private class WallpaperPlaylist {
+    private var allImages: List<Pair<Uri, String>> = emptyList()
+    private var seenUris: Set<String> = emptySet()
+    private val queue = mutableListOf<Pair<Uri, String>>()
+
+    /**
+     * Updates the master list and history, and regenerates the queue.
+     */
+    fun updateData(all: List<Pair<Uri, String>>, seen: Set<String>) {
+        allImages = all
+        seenUris = seen
+        regenerateQueue()
+    }
+
+    /**
+     * Updates the history set. If the history is cleared, regens the queue immediately.
+     */
+    fun updateSeenHistory(seen: Set<String>) {
+        seenUris = seen
+        if (seen.isEmpty()) regenerateQueue()
+    }
+
+    private fun regenerateQueue() {
+        queue.clear()
+        queue.addAll(allImages.filter { it.first.toString() !in seenUris }.shuffled())
+    }
+
+    /**
+     * Returns the next image from the shuffled queue. 
+     * If the queue is empty, it attempts to regenerate from unseen images.
+     * Returns null only if NO unseen images exist.
+     */
+    fun getNext(): Pair<Uri, String>? {
+        if (queue.isEmpty()) {
+            regenerateQueue()
+        }
+        return if (queue.isNotEmpty()) queue.removeAt(0) else null
     }
 }
