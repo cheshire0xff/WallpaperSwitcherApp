@@ -19,6 +19,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Star
@@ -27,6 +30,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -179,7 +183,10 @@ fun WallpaperSwitcherScreen(
     }
 
     Column(
-        modifier = modifier.fillMaxSize().padding(24.dp),
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -205,7 +212,7 @@ fun WallpaperSwitcherScreen(
                 Text("Next Wallpaper")
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Navigation Row for different image lists
             Row(
@@ -316,7 +323,7 @@ fun ImageGridScreen(
             onSetWallpaper = {
                 viewModel.setWallpaper(selectedImage!!)
                 selectedImage = null
-                onBack()
+                onBack() 
             }
         )
     }
@@ -373,6 +380,8 @@ fun EnlargedImageDialog(
 
 @Composable
 fun CurrentWallpaperCard(viewModel: WallpaperViewModel) {
+    var enlargedImagePair by remember { mutableStateOf<Pair<Uri, String>?>(null) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
@@ -386,7 +395,9 @@ fun CurrentWallpaperCard(viewModel: WallpaperViewModel) {
                 Text("Scanning folder...", style = MaterialTheme.typography.bodySmall)
             } else {
                 viewModel.currentWallpaperName?.let { name ->
-                    val isFavorite = viewModel.currentWallpaperUri?.toString() in viewModel.favorites
+                    val uri = viewModel.currentWallpaperUri
+                    val isFavorite = uri?.toString() in viewModel.favorites
+                    
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -415,9 +426,35 @@ fun CurrentWallpaperCard(viewModel: WallpaperViewModel) {
                             )
                         }
                     }
+
+                    // Current wallpaper thumbnail with phone aspect ratio
+                    if (uri != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        AsyncImage(
+                            model = uri,
+                            contentDescription = "Current wallpaper thumbnail",
+                            modifier = Modifier
+                                .height(320.dp)
+                                .aspectRatio(9f / 16f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { enlargedImagePair = uri to name },
+                            contentScale = ContentScale.Crop
+                        )
+                    }
                 }
             }
         }
+    }
+
+    if (enlargedImagePair != null) {
+        EnlargedImageDialog(
+            imagePair = enlargedImagePair!!,
+            onDismiss = { enlargedImagePair = null },
+            onSetWallpaper = {
+                viewModel.setWallpaper(enlargedImagePair!!)
+                enlargedImagePair = null
+            }
+        )
     }
 }
 
