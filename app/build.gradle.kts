@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.wallpaperswitcher"
+    namespace = "com.cheshire.wallpaperswitcher"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.wallpaperswitcher"
+        applicationId = "com.cheshire.wallpaperswitcher"
         minSdk = 35
         targetSdk = 36
         versionCode = 1

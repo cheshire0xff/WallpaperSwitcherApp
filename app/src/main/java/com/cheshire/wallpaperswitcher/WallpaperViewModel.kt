@@ -1,4 +1,4 @@
-package com.example.wallpaperswitcher
+package com.cheshire.wallpaperswitcher
 
 import android.net.Uri
 import androidx.compose.runtime.getValue

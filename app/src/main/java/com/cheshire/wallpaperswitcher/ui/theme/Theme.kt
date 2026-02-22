@@ -1,4 +1,4 @@
-package com.example.wallpaperswitcher.ui.theme
+package com.cheshire.wallpaperswitcher.ui.theme
 
 import android.app.Activity
 import android.os.Build

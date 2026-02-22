@@ -1,4 +1,4 @@
-package com.example.wallpaperswitcher
+package com.cheshire.wallpaperswitcher
 
 import android.app.WallpaperInfo
 import android.app.WallpaperManager
@@ -47,7 +47,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.example.wallpaperswitcher.ui.theme.WallpaperSwitcherTheme
+import com.cheshire.wallpaperswitcher.ui.theme.WallpaperSwitcherTheme
 
 /**
  * Available screens in the app for navigation.
@@ -101,6 +101,13 @@ fun WallpaperSwitcherApp(
     viewModel: WallpaperViewModel
 ) {
     var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
+
+    // System back button handling to return to Dashboard from other screens
+    if (currentScreen != Screen.Dashboard) {
+        BackHandler {
+            currentScreen = Screen.Dashboard
+        }
+    }
 
     when (currentScreen) {
         Screen.Dashboard -> {

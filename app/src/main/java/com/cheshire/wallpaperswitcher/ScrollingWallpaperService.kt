@@ -1,4 +1,4 @@
-package com.example.wallpaperswitcher
+package com.cheshire.wallpaperswitcher
 
 import android.app.WallpaperManager
 import android.content.BroadcastReceiver
@@ -13,12 +13,15 @@ import android.graphics.Matrix
 import android.graphics.Paint
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.service.wallpaper.WallpaperService
 import android.util.Log
+import android.view.MotionEvent
 import android.view.SurfaceHolder
 
 class ScrollingWallpaperService : WallpaperService() {
     override fun onCreateEngine(): Engine {
+        Log.v("WallpaperService", "Service: onCreateEngine called")
         return ScrollingEngine()
     }
 
@@ -29,7 +32,7 @@ class ScrollingWallpaperService : WallpaperService() {
         
         private val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                if (intent.action == "com.example.wallpaperswitcher.UPDATE_WALLPAPER") {
+                if (intent.action == "com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER") {
                     val uriString = intent.getStringExtra("uri")
                     Log.v("WallpaperService", "Update received (Preview: $isPreview): $uriString")
                     if (uriString != null) {
@@ -47,7 +50,7 @@ class ScrollingWallpaperService : WallpaperService() {
             val wm = getSystemService(Context.WALLPAPER_SERVICE) as WallpaperManager
             wm.suggestDesiredDimensions(metrics.widthPixels * 2, metrics.heightPixels)
             
-            val filter = IntentFilter("com.example.wallpaperswitcher.UPDATE_WALLPAPER")
+            val filter = IntentFilter("com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
             } else {
@@ -78,7 +81,6 @@ class ScrollingWallpaperService : WallpaperService() {
             xOffsetStep: Float, yOffsetStep: Float,
             xPixelOffset: Int, yPixelOffset: Int
         ) {
-            // Lowered level to Verbose
             Log.v("WallpaperService", "Offset: x=$xOffset (Preview: $isPreview)")
             
             if (this.xOffset != xOffset) {

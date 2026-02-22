@@ -1,4 +1,4 @@
-package com.example.wallpaperswitcher
+package com.cheshire.wallpaperswitcher
 
 import org.junit.Test
 

@@ -1,4 +1,4 @@
-package com.example.wallpaperswitcher
+package com.cheshire.wallpaperswitcher
 
 import android.content.Context
 import android.content.Intent
@@ -116,7 +116,7 @@ class WallpaperRepository(private val context: Context) {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error saving cache: ${e.message}")
+            Log.e(TAG, "Error saving cache to file: ${e.message}")
         }
     }
 
@@ -138,7 +138,7 @@ class WallpaperRepository(private val context: Context) {
             putString("current_wallpaper_name", name)
         }
         
-        val updateIntent = Intent("com.example.wallpaperswitcher.UPDATE_WALLPAPER")
+        val updateIntent = Intent("com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER")
         updateIntent.setPackage(context.packageName)
         updateIntent.putExtra("uri", uri.toString())
         context.sendBroadcast(updateIntent)
