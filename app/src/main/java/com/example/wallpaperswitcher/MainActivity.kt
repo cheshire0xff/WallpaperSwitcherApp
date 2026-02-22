@@ -47,6 +47,7 @@ class MainActivity : ComponentActivity() {
     private var cachedImages by mutableStateOf<List<Pair<Uri, String>>>(emptyList())
     private var isCaching by mutableStateOf(false)
     private var currentWallpaperName by mutableStateOf<String?>(null)
+    private var seenImageUris by mutableStateOf<Set<String>>(emptySet())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,6 +56,7 @@ class MainActivity : ComponentActivity() {
         val sharedPreferences = getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE)
         folderUri = sharedPreferences.getString("folder_uri", null)?.toUri()
         currentWallpaperName = sharedPreferences.getString("current_wallpaper_name", null)
+        seenImageUris = sharedPreferences.getStringSet("seen_images", emptySet()) ?: emptySet()
 
         // Asynchronously check and load/refresh cache
         folderUri?.let { uri ->
@@ -76,6 +78,7 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.padding(innerPadding),
                             folderUri = folderUri,
                             cachedImagesCount = cachedImages.size,
+                            seenImagesCount = seenImageUris.size,
                             isCaching = isCaching,
                             currentWallpaperName = currentWallpaperName,
                             onFolderSelected = { uri ->
@@ -88,6 +91,13 @@ class MainActivity : ComponentActivity() {
                                 lifecycleScope.launch {
                                     applyNextWallpaper()
                                 }
+                            },
+                            onResetSeen = {
+                                seenImageUris = emptySet()
+                                getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE).edit {
+                                    putStringSet("seen_images", emptySet())
+                                }
+                                Toast.makeText(this@MainActivity, "History reset", Toast.LENGTH_SHORT).show()
                             }
                         )
                     }
@@ -252,7 +262,18 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        val (randomUri, name) = cachedImages.random()
+        // Filter out seen images
+        val unseenImages = cachedImages.filter { it.first.toString() !in seenImageUris }
+        
+        val targetList = if (unseenImages.isEmpty()) {
+            Toast.makeText(this, "All images seen! Starting over.", Toast.LENGTH_SHORT).show()
+            seenImageUris = emptySet()
+            cachedImages
+        } else {
+            unseenImages
+        }
+
+        val (randomUri, name) = targetList.random()
         val startTime = System.currentTimeMillis()
 
         withContext(Dispatchers.IO) {
@@ -267,9 +288,12 @@ class MainActivity : ComponentActivity() {
 
                 Log.i(TAG, "Selected Wallpaper: $name ($resolution)")
 
+                val newSeen = seenImageUris + randomUri.toString()
+                
                 getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE).edit {
                     putString("current_wallpaper_uri", randomUri.toString())
                     putString("current_wallpaper_name", name)
+                    putStringSet("seen_images", newSeen)
                 }
 
                 val updateIntent = Intent("com.example.wallpaperswitcher.UPDATE_WALLPAPER")
@@ -282,6 +306,7 @@ class MainActivity : ComponentActivity() {
 
                 withContext(Dispatchers.Main) {
                     currentWallpaperName = name
+                    seenImageUris = newSeen
                     Toast.makeText(this@MainActivity, "Wallpaper Updated!", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
@@ -296,10 +321,12 @@ fun WallpaperSwitcherScreen(
     modifier: Modifier = Modifier,
     folderUri: Uri?,
     cachedImagesCount: Int,
+    seenImagesCount: Int,
     isCaching: Boolean,
     currentWallpaperName: String?,
     onFolderSelected: (Uri) -> Unit,
-    onNextWallpaper: () -> Unit
+    onNextWallpaper: () -> Unit,
+    onResetSeen: () -> Unit
 ) {
     val context = LocalContext.current
     var isEngineEnabled by remember { mutableStateOf(isWallpaperEngineActive(context)) }
@@ -343,13 +370,22 @@ fun WallpaperSwitcherScreen(
             title = { Text("Folder Details") },
             text = {
                 Column {
-                    Text("Images Loaded: $cachedImagesCount", fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Total Images: $cachedImagesCount", fontWeight = FontWeight.Bold)
+                    Text("Seen: $seenImagesCount")
+                    Text("New: ${cachedImagesCount - seenImagesCount}")
+                    Spacer(modifier = Modifier.height(16.dp))
                     Text("Path:", fontWeight = FontWeight.Bold)
                     Text(
                         text = folderUri?.let { Uri.decode(it.toString()) } ?: "None",
                         style = MaterialTheme.typography.bodySmall
                     )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = { onResetSeen() },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Reset Seen History")
+                    }
                 }
             },
             confirmButton = {
@@ -385,10 +421,7 @@ fun WallpaperSwitcherScreen(
                         CircularProgressIndicator(modifier = Modifier.size(24.dp))
                         Text("Scanning folder...", style = MaterialTheme.typography.bodySmall)
                     } else {
-                        Text("$cachedImagesCount images available", style = MaterialTheme.typography.labelMedium)
-                        
                         currentWallpaperName?.let {
-                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "Current Wallpaper:",
                                 style = MaterialTheme.typography.labelSmall,
