@@ -18,8 +18,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,7 +51,7 @@ class MainActivity : ComponentActivity() {
     private var currentWallpaperName by mutableStateOf<String?>(null)
     private var currentWallpaperUri by mutableStateOf<Uri?>(null)
     private var seenImageUris by mutableStateOf<Set<String>>(emptySet())
-    private var favoriteUris by mutableStateOf<Set<String>>(emptySet())
+    private var favorites by mutableStateOf<Set<String>>(emptySet())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,7 +62,7 @@ class MainActivity : ComponentActivity() {
         currentWallpaperName = sharedPreferences.getString("current_wallpaper_name", null)
         currentWallpaperUri = sharedPreferences.getString("current_wallpaper_uri", null)?.toUri()
         seenImageUris = sharedPreferences.getStringSet("seen_images", emptySet()) ?: emptySet()
-        favoriteUris = sharedPreferences.getStringSet("favorite_images", emptySet()) ?: emptySet()
+        favorites = sharedPreferences.getStringSet("favorite_images", emptySet()) ?: emptySet()
 
         // Asynchronously check and load/refresh cache
         folderUri?.let { uri ->
@@ -86,10 +85,10 @@ class MainActivity : ComponentActivity() {
                             folderUri = folderUri,
                             cachedImagesCount = cachedImages.size,
                             seenImagesCount = seenImageUris.size,
-                            favoritesCount = favoriteUris.size,
+                            favoritesCount = favorites.size,
                             isCaching = isCaching,
                             currentWallpaperName = currentWallpaperName,
-                            isFavorite = currentWallpaperUri?.toString()?.let { it in favoriteUris } ?: false,
+                            isFavorite = currentWallpaperUri?.toString()?.let { it in favorites } ?: false,
                             onFolderSelected = { uri ->
                                 folderUri = uri
                                 lifecycleScope.launch {
@@ -120,12 +119,12 @@ class MainActivity : ComponentActivity() {
 
     private fun toggleFavorite() {
         val uriStr = currentWallpaperUri?.toString() ?: return
-        val newFavorites = if (uriStr in favoriteUris) {
-            favoriteUris - uriStr
+        val newFavorites = if (uriStr in favorites) {
+            favorites - uriStr
         } else {
-            favoriteUris + uriStr
+            favorites + uriStr
         }
-        favoriteUris = newFavorites
+        favorites = newFavorites
         getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE).edit {
             putStringSet("favorite_images", newFavorites)
         }
@@ -143,8 +142,8 @@ class MainActivity : ComponentActivity() {
                 Log.d(TAG, "Cache is up to date. Loaded ${loadedCache.size} images.")
                 withContext(Dispatchers.Main) {
                     cachedImages = loadedCache
-                    // If we have a cache but no name is displayed yet, pick the first one as initial
-                    if (currentWallpaperName == null && loadedCache.isNotEmpty()) {
+                    // If we have a cache but no wallpaper is set yet, pick one
+                    if (currentWallpaperUri == null && loadedCache.isNotEmpty()) {
                         setInitialWallpaperInfo(context, loadedCache.random())
                     }
                     isCaching = false
@@ -218,8 +217,7 @@ class MainActivity : ComponentActivity() {
 
                 withContext(Dispatchers.Main) {
                     cachedImages = newList
-                    // Pick an initial wallpaper name if none is set
-                    if (currentWallpaperName == null && newList.isNotEmpty()) {
+                    if (currentWallpaperUri == null && newList.isNotEmpty()) {
                         setInitialWallpaperInfo(context, newList.random())
                     }
                 }
@@ -243,7 +241,7 @@ class MainActivity : ComponentActivity() {
             putString("current_wallpaper_uri", uri.toString())
             putString("current_wallpaper_name", name)
         }
-        Log.d(TAG, "Initial wallpaper set to: $name")
+        Log.d(TAG, "Initial wallpaper info set to: $name")
     }
 
     private fun saveCacheToFile(context: Context, list: List<Pair<Uri, String>>) {
@@ -288,7 +286,6 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        // Filter out seen images
         val unseenImages = cachedImages.filter { it.first.toString() !in seenImageUris }
         
         val targetList = if (unseenImages.isEmpty()) {
@@ -304,7 +301,6 @@ class MainActivity : ComponentActivity() {
 
         withContext(Dispatchers.IO) {
             try {
-                // Get resolution efficiently
                 var resolution = "Unknown"
                 contentResolver.openInputStream(randomUri)?.use { input ->
                     val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -439,7 +435,6 @@ fun WallpaperSwitcherScreen(
                 Text("Select Wallpaper Folder")
             }
         } else {
-            // Always show scan status and current wallpaper info if a folder is selected
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
@@ -475,9 +470,9 @@ fun WallpaperSwitcherScreen(
                                 }
                                 IconButton(onClick = { onToggleFavorite() }) {
                                     Icon(
-                                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                        imageVector = Icons.Default.Star,
                                         contentDescription = "Toggle Favorite",
-                                        tint = if (isFavorite) Color.Red else MaterialTheme.colorScheme.onSecondaryContainer
+                                        tint = if (isFavorite) Color.White else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.3f)
                                     )
                                 }
                             }
