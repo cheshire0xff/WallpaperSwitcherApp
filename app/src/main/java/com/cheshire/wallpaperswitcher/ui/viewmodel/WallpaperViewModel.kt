@@ -50,6 +50,7 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
 
     fun updateFolderUri(uri: Uri) {
         folderUri = uri
+        repository.saveFolderUri(uri)
         refreshCache()
     }
 

@@ -27,6 +27,10 @@ class WallpaperRepository(private val context: Context) {
 
     fun getFolderUri(): Uri? = prefs.getString("folder_uri", null)?.toUri()
 
+    fun saveFolderUri(uri: Uri) {
+        prefs.edit { putString("folder_uri", uri.toString()) }
+    }
+
     fun getSeenImages(): Set<String> = readSetFromFile(SEEN_IMAGES_FILE)
 
     fun getFavoriteImages(): Set<String> = readSetFromFile(FAVORITES_FILE)
