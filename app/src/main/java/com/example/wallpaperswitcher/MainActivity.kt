@@ -45,6 +45,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.wallpaperswitcher.ui.theme.WallpaperSwitcherTheme
 
+/**
+ * Available screens in the app for navigation.
+ */
+enum class Screen {
+    Dashboard,
+    Queue,
+    Favorites,
+    History
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,7 +77,7 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                        WallpaperSwitcherScreen(
+                        WallpaperSwitcherApp(
                             modifier = Modifier.padding(innerPadding),
                             viewModel = viewModel
                         )
@@ -78,24 +88,65 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * Main application container that handles navigation between different screens.
+ */
+@Composable
+fun WallpaperSwitcherApp(
+    modifier: Modifier = Modifier,
+    viewModel: WallpaperViewModel
+) {
+    var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
+
+    when (currentScreen) {
+        Screen.Dashboard -> {
+            WallpaperSwitcherScreen(
+                modifier = modifier,
+                viewModel = viewModel,
+                onNavigate = { currentScreen = it }
+            )
+        }
+        Screen.Queue -> {
+            ImageGridScreen(
+                title = "Upcoming Queue",
+                images = viewModel.shuffledQueue,
+                viewModel = viewModel,
+                onBack = { currentScreen = Screen.Dashboard }
+            )
+        }
+        Screen.Favorites -> {
+            val favImages = viewModel.cachedImages.filter { it.first.toString() in viewModel.favorites }
+            ImageGridScreen(
+                title = "Favorites",
+                images = favImages,
+                viewModel = viewModel,
+                onBack = { currentScreen = Screen.Dashboard }
+            )
+        }
+        Screen.History -> {
+            val historyImages = viewModel.cachedImages.filter { it.first.toString() in viewModel.seenImageUris }
+            ImageGridScreen(
+                title = "History (Already Seen)",
+                images = historyImages,
+                viewModel = viewModel,
+                onBack = { currentScreen = Screen.Dashboard }
+            )
+        }
+    }
+}
+
+/**
+ * Main dashboard screen composable.
+ */
 @Composable
 fun WallpaperSwitcherScreen(
     modifier: Modifier = Modifier,
-    viewModel: WallpaperViewModel
+    viewModel: WallpaperViewModel,
+    onNavigate: (Screen) -> Unit
 ) {
     val context = LocalContext.current
     var isEngineEnabled by remember { mutableStateOf(isWallpaperEngineActive(context)) }
     var showDetails by remember { mutableStateOf(false) }
-    var isImageGridVisible by remember { mutableStateOf(false) }
-
-    // If grid is visible, show the grid screen instead of the main dashboard
-    if (isImageGridVisible) {
-        ImageGridScreen(
-            viewModel = viewModel,
-            onBack = { isImageGridVisible = false }
-        )
-        return
-    }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -156,13 +207,32 @@ fun WallpaperSwitcherScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Navigation button to the Images Screen
-            OutlinedButton(
-                onClick = { isImageGridVisible = true },
+            // Navigation Row for different image lists
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                enabled = viewModel.cachedImages.isNotEmpty()
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("View Images Queue")
+                OutlinedButton(
+                    onClick = { onNavigate(Screen.Queue) },
+                    modifier = Modifier.weight(1f),
+                    enabled = viewModel.cachedImages.isNotEmpty()
+                ) {
+                    Text("Queue", textAlign = TextAlign.Center)
+                }
+                OutlinedButton(
+                    onClick = { onNavigate(Screen.Favorites) },
+                    modifier = Modifier.weight(1f),
+                    enabled = viewModel.favorites.isNotEmpty()
+                ) {
+                    Text("Favs", textAlign = TextAlign.Center)
+                }
+                OutlinedButton(
+                    onClick = { onNavigate(Screen.History) },
+                    modifier = Modifier.weight(1f),
+                    enabled = viewModel.seenImageUris.isNotEmpty()
+                ) {
+                    Text("History", textAlign = TextAlign.Center)
+                }
             }
 
             OutlinedButton(
@@ -183,11 +253,13 @@ fun WallpaperSwitcherScreen(
 }
 
 /**
- * Screen displaying a lazy-loaded grid of images from the current shuffle queue.
+ * Screen displaying a lazy-loaded grid of images.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImageGridScreen(
+    title: String,
+    images: List<Pair<Uri, String>>,
     viewModel: WallpaperViewModel,
     onBack: () -> Unit
 ) {
@@ -198,7 +270,7 @@ fun ImageGridScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Images Queue") },
+                title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -208,9 +280,9 @@ fun ImageGridScreen(
         }
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
-            if (viewModel.shuffledQueue.isEmpty()) {
+            if (images.isEmpty()) {
                 Text(
-                    "Queue is empty",
+                    "No images to display",
                     modifier = Modifier.align(Alignment.Center),
                     style = MaterialTheme.typography.bodyLarge
                 )
@@ -222,7 +294,7 @@ fun ImageGridScreen(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    items(viewModel.shuffledQueue) { imagePair ->
+                    items(images) { imagePair ->
                         AsyncImage(
                             model = imagePair.first,
                             contentDescription = imagePair.second,
@@ -244,7 +316,7 @@ fun ImageGridScreen(
             onSetWallpaper = {
                 viewModel.setWallpaper(selectedImage!!)
                 selectedImage = null
-                onBack() // return to main screen after picking
+                onBack()
             }
         )
     }
