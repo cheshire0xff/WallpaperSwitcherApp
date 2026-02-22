@@ -56,7 +56,6 @@ dependencies {
     implementation(libs.coil.compose)
     
     testImplementation(libs.junit)
-    testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
