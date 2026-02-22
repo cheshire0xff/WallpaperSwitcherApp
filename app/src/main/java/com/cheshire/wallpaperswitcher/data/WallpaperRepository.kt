@@ -14,22 +14,47 @@ import java.io.File
 
 private const val TAG = "WallpaperRepository"
 private const val CACHE_FILE_NAME = "image_cache.txt"
+private const val SEEN_IMAGES_FILE = "seen_images.txt"
+private const val FAVORITES_FILE = "favorites.txt"
 private const val PREFS_NAME = "WallpaperPrefs"
 
 class WallpaperRepository(private val context: Context) {
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    private val baseDir: File
+        get() = context.externalCacheDir ?: context.cacheDir
+
     fun getFolderUri(): Uri? = prefs.getString("folder_uri", null)?.toUri()
 
-    fun getSeenImages(): Set<String> = prefs.getStringSet("seen_images", emptySet()) ?: emptySet()
+    fun getSeenImages(): Set<String> = readSetFromFile(SEEN_IMAGES_FILE)
 
-    fun getFavoriteImages(): Set<String> = prefs.getStringSet("favorite_images", emptySet()) ?: emptySet()
+    fun getFavoriteImages(): Set<String> = readSetFromFile(FAVORITES_FILE)
 
     fun getCurrentWallpaperName(): String? = prefs.getString("current_wallpaper_name", null)
 
     fun getCurrentWallpaperUri(): Uri? = prefs.getString("current_wallpaper_uri", null)?.toUri()
 
     fun getLastModified(): Long = prefs.getLong("last_modified", -1L)
+
+    private fun readSetFromFile(fileName: String): Set<String> {
+        val file = File(baseDir, fileName)
+        if (!file.exists()) return emptySet()
+        return try {
+            file.readLines().filter { it.isNotBlank() }.toSet()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error reading $fileName: ${e.message}")
+            emptySet()
+        }
+    }
+
+    private fun saveSetToFile(fileName: String, set: Set<String>) {
+        try {
+            val file = File(baseDir, fileName)
+            file.writeText(set.joinToString("\n"))
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving $fileName: ${e.message}")
+        }
+    }
 
     suspend fun getDirectoryLastModified(uri: Uri): Long = withContext(Dispatchers.IO) {
         try {
@@ -51,7 +76,7 @@ class WallpaperRepository(private val context: Context) {
     suspend fun loadCache(): List<Pair<Uri, String>> = withContext(Dispatchers.IO) {
         val list = mutableListOf<Pair<Uri, String>>()
         try {
-            val file = File(context.cacheDir, CACHE_FILE_NAME)
+            val file = File(baseDir, CACHE_FILE_NAME)
             if (file.exists()) {
                 file.bufferedReader().useLines { lines ->
                     lines.forEach { line ->
@@ -108,7 +133,7 @@ class WallpaperRepository(private val context: Context) {
 
     private fun saveCacheToFile(list: List<Pair<Uri, String>>) {
         try {
-            val file = File(context.cacheDir, CACHE_FILE_NAME)
+            val file = File(baseDir, CACHE_FILE_NAME)
             file.bufferedWriter().use { writer ->
                 list.forEach { (uri, name) ->
                     writer.write("${uri}|${name}")
@@ -145,10 +170,10 @@ class WallpaperRepository(private val context: Context) {
     }
 
     fun saveSeenImages(seen: Set<String>) {
-        prefs.edit { putStringSet("seen_images", seen) }
+        saveSetToFile(SEEN_IMAGES_FILE, seen)
     }
 
     fun saveFavorites(favs: Set<String>) {
-        prefs.edit { putStringSet("favorite_images", favs) }
+        saveSetToFile(FAVORITES_FILE, favs)
     }
 }
