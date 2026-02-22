@@ -6,6 +6,7 @@ import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.provider.DocumentsContract
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -22,7 +23,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import androidx.core.net.toUri
-import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.lifecycleScope
 import com.example.wallpaperswitcher.ui.theme.WallpaperSwitcherTheme
 import kotlinx.coroutines.Dispatchers
@@ -109,33 +109,45 @@ fun WallpaperSwitcherScreen(
 suspend fun setNextWallpaper(context: Context, folderUri: Uri) {
     withContext(Dispatchers.IO) {
         try {
-            val root = DocumentFile.fromTreeUri(context, folderUri)
-            if (root == null || !root.isDirectory) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Invalid directory", Toast.LENGTH_SHORT).show()
+            Log.d(TAG, "Starting setNextWallpaper for $folderUri")
+            
+            // Efficiently list files using ContentResolver instead of DocumentFile.listFiles()
+            // which is extremely slow for large directories due to object overhead.
+            val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+                folderUri,
+                DocumentsContract.getTreeDocumentId(folderUri)
+            )
+
+            val imageUris = mutableListOf<Uri>()
+            context.contentResolver.query(
+                childrenUri,
+                arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_MIME_TYPE),
+                null, null, null
+            )?.use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                val mimeCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                while (cursor.moveToNext()) {
+                    val mimeType = cursor.getString(mimeCol)
+                    if (mimeType?.startsWith("image/") == true) {
+                        val docId = cursor.getString(idCol)
+                        imageUris.add(DocumentsContract.buildDocumentUriUsingTree(folderUri, docId))
+                    }
                 }
-                return@withContext
             }
 
-            val files = root.listFiles().filter { 
-                it.type?.startsWith("image/") == true 
-            }
-
-            if (files.isEmpty()) {
+            if (imageUris.isEmpty()) {
+                Log.w(TAG, "No images found in $folderUri")
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "No images found in directory", Toast.LENGTH_SHORT).show()
                 }
                 return@withContext
             }
 
-            val randomFile = files.random()
-            Log.d(TAG, "Setting wallpaper to: ${randomFile.uri}")
+            val randomUri = imageUris.random()
+            Log.d(TAG, "Picking random image: $randomUri")
             
-            val inputStream: InputStream? = context.contentResolver.openInputStream(randomFile.uri)
-            if (inputStream != null) {
+            context.contentResolver.openInputStream(randomUri)?.use { inputStream ->
                 val bitmap = BitmapFactory.decodeStream(inputStream)
-                inputStream.close()
-                
                 if (bitmap != null) {
                     val wallpaperManager = WallpaperManager.getInstance(context)
                     
@@ -143,25 +155,23 @@ suspend fun setNextWallpaper(context: Context, folderUri: Uri) {
                     val screenWidth = metrics.widthPixels
                     val screenHeight = metrics.heightPixels
                     
-                    // Suggesting a wider width enables scrolling
+                    // Set hints for scrollable wallpaper
                     wallpaperManager.suggestDesiredDimensions(screenWidth * 2, screenHeight)
                     
+                    Log.d(TAG, "Applying wallpaper bitmap...")
                     wallpaperManager.setBitmap(bitmap, null, true, WallpaperManager.FLAG_SYSTEM)
+                    
                     withContext(Dispatchers.Main) {
                         Toast.makeText(context, "Wallpaper changed!", Toast.LENGTH_SHORT).show()
                     }
                 } else {
-                    Log.e(TAG, "Failed to decode bitmap from ${randomFile.uri}")
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Failed to decode image", Toast.LENGTH_SHORT).show()
-                    }
+                    Log.e(TAG, "Failed to decode bitmap from $randomUri")
                 }
             }
         } catch (e: SecurityException) {
-            Log.e(TAG, "SecurityException: Permission denied while accessing files or setting wallpaper", e)
+            Log.e(TAG, "SecurityException: Check permissions for $folderUri", e)
             withContext(Dispatchers.Main) {
-                // Show a shorter message but log the full one
-                Toast.makeText(context, "Permission Denied. Check Logcat for details.", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Permission Denied. Check Logcat.", Toast.LENGTH_LONG).show()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error setting wallpaper", e)
