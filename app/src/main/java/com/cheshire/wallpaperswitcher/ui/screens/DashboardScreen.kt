@@ -1,8 +1,9 @@
-package com.cheshire.wallpaperswitcher.ui.screens.dashboard
+package com.cheshire.wallpaperswitcher.ui.screens
 
 import android.app.WallpaperInfo
 import android.app.WallpaperManager
 import android.content.Context
+import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -56,7 +58,7 @@ fun DashboardScreen(
         if (uri != null) {
             context.contentResolver.takePersistableUriPermission(
                 uri,
-                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
             viewModel.updateFolderUri(uri)
         }
@@ -125,14 +127,14 @@ fun DashboardScreen(
                     modifier = Modifier.weight(1f),
                     enabled = viewModel.cachedImages.isNotEmpty()
                 ) {
-                    Text("Queue", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text("Queue", textAlign = TextAlign.Center)
                 }
                 OutlinedButton(
                     onClick = { onNavigate(Screen.Favorites) },
                     modifier = Modifier.weight(1f),
                     enabled = viewModel.favoriteNames.isNotEmpty()
                 ) {
-                    Text("Favs", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text("Favs", textAlign = TextAlign.Center)
                 }
             }
 
@@ -146,14 +148,14 @@ fun DashboardScreen(
                     modifier = Modifier.weight(1f),
                     enabled = viewModel.seenImageNames.isNotEmpty()
                 ) {
-                    Text("History", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text("History", textAlign = TextAlign.Center)
                 }
                 OutlinedButton(
                     onClick = { onNavigate(Screen.ToRemove) },
                     modifier = Modifier.weight(1f),
                     enabled = viewModel.toRemoveNames.isNotEmpty()
                 ) {
-                    Text("To Remove", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text("To Remove", textAlign = TextAlign.Center)
                 }
             }
 

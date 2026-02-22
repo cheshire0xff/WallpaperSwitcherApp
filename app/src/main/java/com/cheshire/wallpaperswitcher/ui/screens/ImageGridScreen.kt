@@ -1,4 +1,4 @@
-package com.cheshire.wallpaperswitcher.ui.screens.grid
+package com.cheshire.wallpaperswitcher.ui.screens
 
 import android.net.Uri
 import androidx.activity.compose.BackHandler

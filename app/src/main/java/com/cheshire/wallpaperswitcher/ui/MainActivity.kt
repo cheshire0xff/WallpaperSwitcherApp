@@ -19,9 +19,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.cheshire.wallpaperswitcher.data.WallpaperRepository
-import com.cheshire.wallpaperswitcher.ui.screens.dashboard.DashboardScreen
+import com.cheshire.wallpaperswitcher.ui.screens.DashboardScreen
 import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
-import com.cheshire.wallpaperswitcher.ui.screens.grid.ImageGridScreen
+import com.cheshire.wallpaperswitcher.ui.screens.ImageGridScreen
 import com.cheshire.wallpaperswitcher.ui.theme.WallpaperSwitcherTheme
 
 /**

@@ -12,11 +12,10 @@ import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.net.Uri
-import android.os.Build
-import android.os.Bundle
 import android.service.wallpaper.WallpaperService
 import android.util.Log
 import android.view.SurfaceHolder
+import androidx.core.net.toUri
 
 class ScrollingWallpaperService : WallpaperService() {
     override fun onCreateEngine(): Engine {
@@ -35,7 +34,7 @@ class ScrollingWallpaperService : WallpaperService() {
                     val uriString = intent.getStringExtra("uri")
                     Log.v("WallpaperService", "Update received (Preview: $isPreview): $uriString")
                     if (uriString != null) {
-                        loadWallpaper(Uri.parse(uriString))
+                        loadWallpaper(uriString.toUri())
                     }
                 }
             }
@@ -50,15 +49,12 @@ class ScrollingWallpaperService : WallpaperService() {
             wm.suggestDesiredDimensions(metrics.widthPixels * 2, metrics.heightPixels)
             
             val filter = IntentFilter("com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
-            } else {
-                registerReceiver(receiver, filter)
-            }
+            registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+
             
             val prefs = getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE)
             prefs.getString("current_wallpaper_uri", null)?.let {
-                loadWallpaper(Uri.parse(it))
+                loadWallpaper(it.toUri())
             }
         }
 
