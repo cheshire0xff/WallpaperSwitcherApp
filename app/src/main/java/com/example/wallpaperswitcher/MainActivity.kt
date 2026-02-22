@@ -21,7 +21,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import androidx.core.net.toUri
@@ -42,6 +45,7 @@ class MainActivity : ComponentActivity() {
     private var folderUri by mutableStateOf<Uri?>(null)
     private var cachedImages by mutableStateOf<List<Pair<Uri, String>>>(emptyList())
     private var isCaching by mutableStateOf(false)
+    private var currentWallpaperName by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,6 +53,7 @@ class MainActivity : ComponentActivity() {
 
         val sharedPreferences = getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE)
         folderUri = sharedPreferences.getString("folder_uri", null)?.toUri()
+        currentWallpaperName = sharedPreferences.getString("current_wallpaper_name", null)
 
         // Asynchronously check and load/refresh cache
         folderUri?.let { uri ->
@@ -71,6 +76,7 @@ class MainActivity : ComponentActivity() {
                             folderUri = folderUri,
                             cachedImagesCount = cachedImages.size,
                             isCaching = isCaching,
+                            currentWallpaperName = currentWallpaperName,
                             onFolderSelected = { uri ->
                                 folderUri = uri
                                 lifecycleScope.launch {
@@ -101,6 +107,10 @@ class MainActivity : ComponentActivity() {
                 Log.d(TAG, "Cache is up to date. Loaded ${loadedCache.size} images.")
                 withContext(Dispatchers.Main) {
                     cachedImages = loadedCache
+                    // If we have a cache but no name is displayed yet, pick the first one as initial
+                    if (currentWallpaperName == null && loadedCache.isNotEmpty()) {
+                        setInitialWallpaperInfo(context, loadedCache.random())
+                    }
                     isCaching = false
                 }
             } else {
@@ -172,6 +182,10 @@ class MainActivity : ComponentActivity() {
 
                 withContext(Dispatchers.Main) {
                     cachedImages = newList
+                    // Pick an initial wallpaper name if none is set
+                    if (currentWallpaperName == null && newList.isNotEmpty()) {
+                        setInitialWallpaperInfo(context, newList.random())
+                    }
                 }
                 val totalTime = System.currentTimeMillis() - startTime
                 Log.d(TAG, "Cache refreshed and saved in ${totalTime}ms, found ${newList.size} images.")
@@ -183,6 +197,16 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun setInitialWallpaperInfo(context: Context, pair: Pair<Uri, String>) {
+        val (uri, name) = pair
+        currentWallpaperName = name
+        context.getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE).edit {
+            putString("current_wallpaper_uri", uri.toString())
+            putString("current_wallpaper_name", name)
+        }
+        Log.d(TAG, "Initial wallpaper set to: $name")
     }
 
     private fun saveCacheToFile(context: Context, list: List<Pair<Uri, String>>) {
@@ -244,6 +268,7 @@ class MainActivity : ComponentActivity() {
 
                 getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE).edit {
                     putString("current_wallpaper_uri", randomUri.toString())
+                    putString("current_wallpaper_name", name)
                 }
 
                 val updateIntent = Intent("com.example.wallpaperswitcher.UPDATE_WALLPAPER")
@@ -255,6 +280,7 @@ class MainActivity : ComponentActivity() {
                 Log.d(TAG, "Wallpaper application triggered in ${totalTime}ms.")
 
                 withContext(Dispatchers.Main) {
+                    currentWallpaperName = name
                     Toast.makeText(this@MainActivity, "Wallpaper Updated!", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
@@ -270,6 +296,7 @@ fun WallpaperSwitcherScreen(
     folderUri: Uri?,
     cachedImagesCount: Int,
     isCaching: Boolean,
+    currentWallpaperName: String?,
     onFolderSelected: (Uri) -> Unit,
     onNextWallpaper: () -> Unit
 ) {
@@ -320,16 +347,51 @@ fun WallpaperSwitcherScreen(
                 Text("Select Wallpaper Folder")
             }
         } else {
+            // Always show scan status and current wallpaper info if a folder is selected
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    if (isCaching) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        Text("Scanning folder...", style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        Text("$cachedImagesCount images available", style = MaterialTheme.typography.labelMedium)
+                        
+                        currentWallpaperName?.let {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Current Wallpaper:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+                }
+            }
+
             if (!isEngineEnabled) {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
                 ) {
                     Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("One-time setup required", style = MaterialTheme.typography.titleMedium)
+                        Text("Engine Disabled", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "To enable scrolling, you must set this app as your live wallpaper.",
+                            "Scrolling won't work until you set this as your Live Wallpaper.",
                             style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
                         Button(onClick = {
@@ -338,31 +400,29 @@ fun WallpaperSwitcherScreen(
                                 ComponentName(context, ScrollingWallpaperService::class.java))
                             context.startActivity(intent)
                         }) {
-                            Text("Enable Scrolling Engine")
+                            Text("Enable Engine Now")
                         }
                     }
                 }
             } else {
                 Text(
                     "Wallpaper Engine is Active",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.primary
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color(0xFF4CAF50) // Green
                 )
-                
-                if (isCaching) {
-                    CircularProgressIndicator()
-                    Text("Scanning folder...", style = MaterialTheme.typography.bodySmall)
-                } else {
-                    Text("$cachedImagesCount images found", style = MaterialTheme.typography.bodySmall)
-                }
+            }
 
-                Button(
-                    onClick = { onNextWallpaper() },
-                    enabled = !isCaching && cachedImagesCount > 0,
-                    modifier = Modifier.fillMaxWidth().height(56.dp)
-                ) {
-                    Text("Next Wallpaper")
-                }
+            Button(
+                onClick = { 
+                    if (!isEngineEnabled) {
+                        Toast.makeText(context, "Please enable the engine first", Toast.LENGTH_SHORT).show()
+                    }
+                    onNextWallpaper() 
+                },
+                enabled = !isCaching && cachedImagesCount > 0,
+                modifier = Modifier.fillMaxWidth().height(56.dp)
+            ) {
+                Text("Next Wallpaper")
             }
 
             OutlinedButton(
