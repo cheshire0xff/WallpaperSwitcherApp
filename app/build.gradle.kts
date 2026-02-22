@@ -1,6 +1,26 @@
+import java.io.ByteArrayOutputStream
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+}
+
+fun getGitHash(): String {
+    return try {
+        val parts = "git rev-parse --short HEAD".split(" ")
+        val proc = ProcessBuilder(parts)
+            .directory(project.rootDir)
+            .redirectOutput(ProcessBuilder.Redirect.PIPE)
+            .redirectError(ProcessBuilder.Redirect.PIPE)
+            .start()
+
+        proc.waitFor(5, TimeUnit.SECONDS)
+        val result = proc.inputStream.bufferedReader().readText().trim()
+
+        result.ifEmpty { "unknown" }
+    } catch (e: Exception) {
+        "none"
+    }
 }
 
 android {
@@ -15,6 +35,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        buildConfigField("String", "GIT_HASH", "\"${getGitHash()}\"")
     }
 
     buildTypes {
@@ -32,6 +54,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     
     testOptions {

@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.cheshire.wallpaperswitcher.R
+import com.cheshire.wallpaperswitcher.BuildConfig
 import androidx.compose.ui.res.stringResource
 
 /**
@@ -34,6 +35,7 @@ fun InformationDialog(
     val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
     val versionName = packageInfo.versionName ?: "Unknown"
     val appName = stringResource(R.string.app_name)
+    val gitHash = BuildConfig.GIT_HASH
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -41,7 +43,7 @@ fun InformationDialog(
         text = {
             Column {
                 Text(appName, style = MaterialTheme.typography.titleLarge)
-                Text("Version $versionName", style = MaterialTheme.typography.bodyMedium)
+                Text("Version $versionName ($gitHash)", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Text("Total Images: $totalImages")
