@@ -40,6 +40,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // Initialize repository and factory for ViewModel
         val repository = WallpaperRepository(applicationContext)
         val factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -68,6 +69,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * Main screen composable that coordinates the wallpaper switching logic and UI.
+ */
 @Composable
 fun WallpaperSwitcherScreen(
     modifier: Modifier = Modifier,
@@ -77,6 +81,7 @@ fun WallpaperSwitcherScreen(
     var isEngineEnabled by remember { mutableStateOf(isWallpaperEngineActive(context)) }
     var showDetails by remember { mutableStateOf(false) }
 
+    // Lifecycle observer to re-check if the live wallpaper engine is active when returning to the app
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -88,6 +93,7 @@ fun WallpaperSwitcherScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    // Launcher for selecting the wallpaper directory
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
@@ -100,34 +106,11 @@ fun WallpaperSwitcherScreen(
         }
     }
 
+    // Dialog showing folder statistics and path
     if (showDetails) {
-        AlertDialog(
-            onDismissRequest = { showDetails = false },
-            title = { Text("Folder Details") },
-            text = {
-                Column {
-                    Text("Total Images: ${viewModel.cachedImages.size}", fontWeight = FontWeight.Bold)
-                    Text("Seen: ${viewModel.seenImageUris.size}")
-                    Text("New: ${viewModel.cachedImages.size - viewModel.seenImageUris.size}")
-                    Text("Favorites: ${viewModel.favorites.size}")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Path:", fontWeight = FontWeight.Bold)
-                    Text(
-                        text = viewModel.folderUri?.let { Uri.decode(it.toString()) } ?: "None",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = { viewModel.resetSeen() },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Reset Seen History")
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showDetails = false }) { Text("Close") }
-            }
+        FolderDetailsDialog(
+            viewModel = viewModel,
+            onDismiss = { showDetails = false }
         )
     }
 
@@ -137,88 +120,20 @@ fun WallpaperSwitcherScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (viewModel.folderUri == null) {
+            // Initial state: No folder selected
             Button(onClick = { launcher.launch(null) }) {
                 Text("Select Wallpaper Folder")
             }
         } else {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    if (viewModel.isCaching) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                        Text("Scanning folder...", style = MaterialTheme.typography.bodySmall)
-                    } else {
-                        viewModel.currentWallpaperName?.let { name ->
-                            val isFavorite = viewModel.currentWallpaperUri?.toString() in viewModel.favorites
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Current Wallpaper:",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    Text(
-                                        text = name,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                                IconButton(onClick = { viewModel.toggleFavorite() }) {
-                                    Icon(
-                                        imageVector = if (isFavorite) Icons.Default.Star else Icons.Outlined.Star,
-                                        contentDescription = "Toggle Favorite",
-                                        tint = if (isFavorite) Color.White else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.3f)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // Folder is selected: Show wallpaper info and controls
+            CurrentWallpaperCard(viewModel = viewModel)
 
-            if (!isEngineEnabled) {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Engine Disabled", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "Scrolling won't work until you set this as your Live Wallpaper.",
-                            style = MaterialTheme.typography.bodySmall,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                        Button(onClick = {
-                            val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
-                            intent.putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, 
-                                ComponentName(context, ScrollingWallpaperService::class.java))
-                            context.startActivity(intent)
-                        }) {
-                            Text("Enable Engine Now")
-                        }
-                    }
-                }
-            } else {
-                Text(
-                    "Wallpaper Engine is Active",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color(0xFF4CAF50)
-                )
-            }
+            EngineStatusSection(
+                context = context,
+                isEngineEnabled = isEngineEnabled
+            )
 
+            // Primary action button
             Button(
                 onClick = { 
                     if (!isEngineEnabled) {
@@ -234,6 +149,7 @@ fun WallpaperSwitcherScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
+            // Bottom management buttons
             OutlinedButton(
                 onClick = { showDetails = true },
                 modifier = Modifier.fillMaxWidth()
@@ -251,6 +167,137 @@ fun WallpaperSwitcherScreen(
     }
 }
 
+/**
+ * Displays information about the current wallpaper and a favorite toggle.
+ */
+@Composable
+fun CurrentWallpaperCard(viewModel: WallpaperViewModel) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (viewModel.isCaching) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                Text("Scanning folder...", style = MaterialTheme.typography.bodySmall)
+            } else {
+                viewModel.currentWallpaperName?.let { name ->
+                    val isFavorite = viewModel.currentWallpaperUri?.toString() in viewModel.favorites
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Current Wallpaper:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        IconButton(onClick = { viewModel.toggleFavorite() }) {
+                            Icon(
+                                imageVector = if (isFavorite) Icons.Default.Star else Icons.Outlined.Star,
+                                contentDescription = "Toggle Favorite",
+                                tint = if (isFavorite) Color.White else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.3f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Displays the status of the Live Wallpaper engine and an enable button if needed.
+ */
+@Composable
+fun EngineStatusSection(context: Context, isEngineEnabled: Boolean) {
+    if (!isEngineEnabled) {
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Engine Disabled", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Scrolling won't work until you set this as your Live Wallpaper.",
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+                Button(onClick = {
+                    val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
+                    intent.putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, 
+                        ComponentName(context, ScrollingWallpaperService::class.java))
+                    context.startActivity(intent)
+                }) {
+                    Text("Enable Engine Now")
+                }
+            }
+        }
+    } else {
+        Text(
+            "Wallpaper Engine is Active",
+            style = MaterialTheme.typography.labelLarge,
+            color = Color(0xFF4CAF50)
+        )
+    }
+}
+
+/**
+ * Dialog showing statistics and folder path details.
+ */
+@Composable
+fun FolderDetailsDialog(
+    viewModel: WallpaperViewModel,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Folder Details") },
+        text = {
+            Column {
+                Text("Total Images: ${viewModel.cachedImages.size}", fontWeight = FontWeight.Bold)
+                Text("Seen: ${viewModel.seenImageUris.size}")
+                Text("New: ${viewModel.cachedImages.size - viewModel.seenImageUris.size}")
+                Text("Favorites: ${viewModel.favorites.size}")
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Path:", fontWeight = FontWeight.Bold)
+                Text(
+                    text = viewModel.folderUri?.let { Uri.decode(it.toString()) } ?: "None",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { viewModel.resetSeen() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Reset Seen History")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        }
+    )
+}
+
+/**
+ * Checks if this app's scrolling wallpaper service is currently active.
+ */
 private fun isWallpaperEngineActive(context: Context): Boolean {
     val wm = WallpaperManager.getInstance(context)
     val info: WallpaperInfo? = wm.wallpaperInfo
