@@ -156,22 +156,28 @@ class ScrollingWallpaperService : WallpaperService() {
 
         private fun draw() {
             val holder = surfaceHolder
-            val canvas = try { holder.lockCanvas() } catch (e: Exception) { null } ?: return
-            
+            // Use lockHardwareCanvas() for GPU acceleration if on API 26+
+            val canvas = try {
+                holder.lockHardwareCanvas()
+            } catch (e: Exception) {
+                Log.e("WallpaperService", "Canvas lock error", e)
+                null
+            } ?: return
+
             try {
                 val bitmap = wallpaperBitmap
                 if (bitmap != null) {
                     val tx = if (maxScroll > 0) {
                         -xOffset * maxScroll
                     } else {
-                        // Center horizontally if not scrolling
                         (viewWidth - bitmap.width * finalScale) / 2f
                     }
-                    
+
                     drawMatrix.reset()
                     drawMatrix.postScale(finalScale, finalScale)
                     drawMatrix.postTranslate(tx, ty)
-                    
+
+                    // GPU handles this drawBitmap call much faster
                     canvas.drawColor(Color.BLACK)
                     canvas.drawBitmap(bitmap, drawMatrix, paint)
                 } else {
