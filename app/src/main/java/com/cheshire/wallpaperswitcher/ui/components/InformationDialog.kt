@@ -12,13 +12,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.cheshire.wallpaperswitcher.R
+import androidx.compose.ui.res.stringResource
 
 /**
- * Dialog showing folder statistics and path details.
+ * Dialog showing app information and folder statistics.
  */
 @Composable
-fun FolderDetailsDialog(
+fun InformationDialog(
     totalImages: Int,
     seenCount: Int,
     favoritesCount: Int,
@@ -27,23 +30,34 @@ fun FolderDetailsDialog(
     onResetSeen: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+    val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+    val versionName = packageInfo.versionName ?: "Unknown"
+    val appName = stringResource(R.string.app_name)
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Folder Details") },
+        title = { Text("Information") },
         text = {
             Column {
+                Text(appName, style = MaterialTheme.typography.titleLarge)
+                Text("Version $versionName", style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(16.dp))
+                
                 Text("Total Images: $totalImages")
                 Text("Seen: $seenCount")
                 Text("New: ${totalImages - seenCount}")
                 Text("Favorites: $favoritesCount")
                 Text("To Remove: $toRemoveCount")
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Path:", style = MaterialTheme.typography.labelLarge)
+                
+                Text("Folder Path:", style = MaterialTheme.typography.labelLarge)
                 Text(
                     text = folderUri?.let { Uri.decode(it.toString()) } ?: "None",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Spacer(modifier = Modifier.height(16.dp))
+                
                 Button(
                     onClick = onResetSeen,
                     modifier = Modifier.fillMaxWidth()

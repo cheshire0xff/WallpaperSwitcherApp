@@ -24,7 +24,7 @@ import com.cheshire.wallpaperswitcher.service.ScrollingWallpaperService
 import com.cheshire.wallpaperswitcher.ui.Screen
 import com.cheshire.wallpaperswitcher.ui.components.CurrentWallpaperCard
 import com.cheshire.wallpaperswitcher.ui.components.EngineStatusSection
-import com.cheshire.wallpaperswitcher.ui.components.FolderDetailsDialog
+import com.cheshire.wallpaperswitcher.ui.components.InformationDialog
 import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
 
 
@@ -39,7 +39,7 @@ fun DashboardScreen(
 ) {
     val context = LocalContext.current
     var isEngineEnabled by remember { mutableStateOf(isWallpaperEngineActive(context)) }
-    var showDetails by remember { mutableStateOf(false) }
+    var showInformation by remember { mutableStateOf(false) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -64,15 +64,15 @@ fun DashboardScreen(
         }
     }
 
-    if (showDetails) {
-        FolderDetailsDialog(
+    if (showInformation) {
+        InformationDialog(
             totalImages = viewModel.cachedImages.size,
             seenCount = viewModel.seenImageNames.size,
             favoritesCount = viewModel.favoriteNames.size,
             toRemoveCount = viewModel.toRemoveNames.size,
             folderUri = viewModel.folderUri,
             onResetSeen = { viewModel.resetSeen() },
-            onDismiss = { showDetails = false }
+            onDismiss = { showInformation = false }
         )
     }
 
@@ -160,10 +160,10 @@ fun DashboardScreen(
             }
 
             OutlinedButton(
-                onClick = { showDetails = true },
+                onClick = { showInformation = true },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Folder Details")
+                Text("Information")
             }
 
             OutlinedButton(
