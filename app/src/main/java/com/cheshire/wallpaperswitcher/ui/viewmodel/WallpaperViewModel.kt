@@ -24,6 +24,8 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
         private set
     var favoriteNames by mutableStateOf<Set<String>>(emptySet())
         private set
+    var toRemoveNames by mutableStateOf<Set<String>>(emptySet())
+        private set
 
     // Map of filename -> Uri for quick lookup
     private var imageMap = emptyMap<String, Uri>()
@@ -41,6 +43,7 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
         currentWallpaperUri = repository.getCurrentWallpaperUri()
         seenImageNames = repository.getSeenImages()
         favoriteNames = repository.getFavoriteImages()
+        toRemoveNames = repository.getToRemoveImages()
 
         folderUri?.let { refreshCache() }
     }
@@ -145,6 +148,17 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
         }
         favoriteNames = newFavorites
         repository.saveFavorites(newFavorites)
+    }
+
+    fun toggleToRemove() {
+        val name = currentWallpaperName ?: return
+        val newToRemove = if (name in toRemoveNames) {
+            toRemoveNames - name
+        } else {
+            toRemoveNames + name
+        }
+        toRemoveNames = newToRemove
+        repository.saveToRemoveImages(newToRemove)
     }
 
     fun resetSeen() {

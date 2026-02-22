@@ -5,7 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -27,8 +29,10 @@ fun CurrentWallpaperCard(
     name: String?,
     uri: Uri?,
     isFavorite: Boolean,
+    isToRemove: Boolean,
     isCaching: Boolean,
     onToggleFavorite: () -> Unit,
+    onToggleToRemove: () -> Unit,
     onEnlarge: (Uri, String) -> Unit
 ) {
     Card(
@@ -64,12 +68,21 @@ fun CurrentWallpaperCard(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-                        IconButton(onClick = onToggleFavorite) {
-                            Icon(
-                                imageVector = if (isFavorite) Icons.Default.Star else Icons.Outlined.Star,
-                                contentDescription = "Toggle Favorite",
-                                tint = if (isFavorite) Color.White else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.3f)
-                            )
+                        Row {
+                            IconButton(onClick = onToggleFavorite) {
+                                Icon(
+                                    imageVector = if (isFavorite) Icons.Default.Star else Icons.Outlined.Star,
+                                    contentDescription = "Toggle Favorite",
+                                    tint = if (isFavorite) Color.White else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.3f)
+                                )
+                            }
+                            IconButton(onClick = onToggleToRemove) {
+                                Icon(
+                                    imageVector = if (isToRemove) Icons.Default.Delete else Icons.Outlined.Delete,
+                                    contentDescription = "Toggle To Remove",
+                                    tint = if (isToRemove) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.3f)
+                                )
+                            }
                         }
                     }
 

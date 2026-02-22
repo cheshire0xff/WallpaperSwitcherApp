@@ -22,6 +22,7 @@ fun FolderDetailsDialog(
     totalImages: Int,
     seenCount: Int,
     favoritesCount: Int,
+    toRemoveCount: Int,
     folderUri: Uri?,
     onResetSeen: () -> Unit,
     onDismiss: () -> Unit
@@ -35,6 +36,7 @@ fun FolderDetailsDialog(
                 Text("Seen: $seenCount")
                 Text("New: ${totalImages - seenCount}")
                 Text("Favorites: $favoritesCount")
+                Text("To Remove: $toRemoveCount")
                 Spacer(modifier = Modifier.height(16.dp))
                 Text("Path:", style = MaterialTheme.typography.labelLarge)
                 Text(

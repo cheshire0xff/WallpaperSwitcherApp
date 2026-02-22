@@ -16,6 +16,7 @@ private const val TAG = "WallpaperRepository"
 private const val CACHE_FILE_NAME = "image_cache.txt"
 private const val SEEN_IMAGES_FILE = "seen_images.txt"
 private const val FAVORITES_FILE = "favorites.txt"
+private const val TO_REMOVE_FILE = "to_remove.txt"
 private const val PREFS_NAME = "WallpaperPrefs"
 
 class WallpaperRepository(private val context: Context) {
@@ -29,6 +30,8 @@ class WallpaperRepository(private val context: Context) {
     fun getSeenImages(): Set<String> = readSetFromFile(SEEN_IMAGES_FILE)
 
     fun getFavoriteImages(): Set<String> = readSetFromFile(FAVORITES_FILE)
+
+    fun getToRemoveImages(): Set<String> = readSetFromFile(TO_REMOVE_FILE)
 
     fun getCurrentWallpaperName(): String? = prefs.getString("current_wallpaper_name", null)
 
@@ -175,5 +178,9 @@ class WallpaperRepository(private val context: Context) {
 
     fun saveFavorites(favNames: Set<String>) {
         saveSetToFile(FAVORITES_FILE, favNames)
+    }
+
+    fun saveToRemoveImages(names: Set<String>) {
+        saveSetToFile(TO_REMOVE_FILE, names)
     }
 }

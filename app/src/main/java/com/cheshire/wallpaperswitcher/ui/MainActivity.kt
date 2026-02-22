@@ -31,7 +31,8 @@ enum class Screen {
     Dashboard,
     Queue,
     Favorites,
-    History
+    History,
+    ToRemove
 }
 
 class MainActivity : ComponentActivity() {
@@ -108,6 +109,17 @@ fun WallpaperSwitcherApp(
             ImageGridScreen(
                 title = "History (Already Seen)",
                 images = historyImages,
+                viewModel = viewModel,
+                onBack = { currentScreen = Screen.Dashboard }
+            )
+        }
+        Screen.ToRemove -> {
+            val toRemoveImages = viewModel.toRemoveNames.mapNotNull { name ->
+                viewModel.getUriForName(name)?.let { it to name }
+            }
+            ImageGridScreen(
+                title = "To Remove",
+                images = toRemoveImages,
                 viewModel = viewModel,
                 onBack = { currentScreen = Screen.Dashboard }
             )

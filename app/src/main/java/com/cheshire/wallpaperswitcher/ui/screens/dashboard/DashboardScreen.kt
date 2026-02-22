@@ -67,6 +67,7 @@ fun DashboardScreen(
             totalImages = viewModel.cachedImages.size,
             seenCount = viewModel.seenImageNames.size,
             favoritesCount = viewModel.favoriteNames.size,
+            toRemoveCount = viewModel.toRemoveNames.size,
             folderUri = viewModel.folderUri,
             onResetSeen = { viewModel.resetSeen() },
             onDismiss = { showDetails = false }
@@ -90,8 +91,10 @@ fun DashboardScreen(
                 name = viewModel.currentWallpaperName,
                 uri = viewModel.currentWallpaperUri,
                 isFavorite = viewModel.currentWallpaperName in viewModel.favoriteNames,
+                isToRemove = viewModel.currentWallpaperName in viewModel.toRemoveNames,
                 isCaching = viewModel.isCaching,
                 onToggleFavorite = { viewModel.toggleFavorite() },
+                onToggleToRemove = { viewModel.toggleToRemove() },
                 onEnlarge = { _, _ -> /* enlargement handled inside CurrentWallpaperCard or passed up */ }
             )
 
@@ -112,6 +115,7 @@ fun DashboardScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Navigation Row 1
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -130,12 +134,26 @@ fun DashboardScreen(
                 ) {
                     Text("Favs", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 }
+            }
+
+            // Navigation Row 2
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 OutlinedButton(
                     onClick = { onNavigate(Screen.History) },
                     modifier = Modifier.weight(1f),
                     enabled = viewModel.seenImageNames.isNotEmpty()
                 ) {
                     Text("History", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
+                OutlinedButton(
+                    onClick = { onNavigate(Screen.ToRemove) },
+                    modifier = Modifier.weight(1f),
+                    enabled = viewModel.toRemoveNames.isNotEmpty()
+                ) {
+                    Text("To Remove", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 }
             }
 
