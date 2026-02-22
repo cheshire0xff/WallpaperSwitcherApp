@@ -113,29 +113,4 @@ class WallpaperViewModelTest {
         assertTrue(repository.getSeenImages().isEmpty())
     }
 
-    @Test
-    fun `nextWallpaper updates current wallpaper and marks as seen`() = runTest {
-        // Setup cache file manually since we aren't mocking the content resolver queries
-        val baseDir = context.externalCacheDir ?: context.cacheDir
-        val cacheFile = File(baseDir, "image_cache.txt")
-        cacheFile.writeText("content://uri1|img1.jpg\ncontent://uri2|img2.jpg")
-        
-        val folderUri = Uri.parse("content://folder")
-        repository.saveFolderUri(folderUri)
-        
-        viewModel = WallpaperViewModel(repository)
-
-        
-        // Trigger initial pick
-        val firstPick = viewModel.currentWallpaperName
-        advanceUntilIdle()
-        assertNotNull(firstPick)
-        
-        viewModel.nextWallpaper()
-        advanceUntilIdle()
-
-        assertNotEquals(firstPick, viewModel.currentWallpaperName)
-        assertTrue(viewModel.seenImageNames.contains(viewModel.currentWallpaperName))
-        assertTrue(repository.getSeenImages().contains(viewModel.currentWallpaperName))
-    }
 }

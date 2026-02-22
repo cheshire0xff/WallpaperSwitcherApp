@@ -14,6 +14,7 @@ import android.graphics.Paint
 import android.net.Uri
 import android.service.wallpaper.WallpaperService
 import android.util.Log
+import android.view.Choreographer
 import android.view.SurfaceHolder
 import androidx.core.net.toUri
 
@@ -23,11 +24,21 @@ class ScrollingWallpaperService : WallpaperService() {
         return ScrollingEngine()
     }
 
-    inner class ScrollingEngine : Engine() {
+    inner class ScrollingEngine : Engine(), Choreographer.FrameCallback {
         private var wallpaperBitmap: Bitmap? = null
         private var xOffset = 0.5f 
         private val paint = Paint().apply { isFilterBitmap = true }
         
+        // Cache calculations
+        private val drawMatrix = Matrix()
+        private var finalScale = 1f
+        private var maxScroll = 0f
+        private var ty = 0f
+        private var viewWidth = 0f
+        private var viewHeight = 0f
+        
+        private var needsDraw = false
+
         private val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 if (intent.action == "com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER") {
@@ -46,12 +57,12 @@ class ScrollingWallpaperService : WallpaperService() {
             
             val metrics = resources.displayMetrics
             val wm = getSystemService(Context.WALLPAPER_SERVICE) as WallpaperManager
+            // Suggest double width for scrolling
             wm.suggestDesiredDimensions(metrics.widthPixels * 2, metrics.heightPixels)
             
             val filter = IntentFilter("com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER")
             registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
 
-            
             val prefs = getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE)
             prefs.getString("current_wallpaper_uri", null)?.let {
                 loadWallpaper(it.toUri())
@@ -61,13 +72,34 @@ class ScrollingWallpaperService : WallpaperService() {
         override fun onVisibilityChanged(visible: Boolean) {
             super.onVisibilityChanged(visible)
             Log.v("WallpaperService", "Visibility changed to $visible (Preview: $isPreview)")
-            if (visible) draw()
+            if (visible) {
+                scheduleDraw()
+            } else {
+                Choreographer.getInstance().removeFrameCallback(this)
+            }
+        }
+
+        override fun doFrame(frameTimeNanos: Long) {
+            if (needsDraw) {
+                draw()
+                needsDraw = false
+            }
+            if (isVisible) {
+                Choreographer.getInstance().postFrameCallback(this)
+            }
+        }
+
+        private fun scheduleDraw() {
+            needsDraw = true
+            Choreographer.getInstance().removeFrameCallback(this)
+            Choreographer.getInstance().postFrameCallback(this)
         }
 
         override fun onDestroy() {
             Log.v("WallpaperService", "Engine onDestroy (Preview: $isPreview)")
             super.onDestroy()
             unregisterReceiver(receiver)
+            Choreographer.getInstance().removeFrameCallback(this)
             wallpaperBitmap?.recycle()
         }
 
@@ -76,18 +108,19 @@ class ScrollingWallpaperService : WallpaperService() {
             xOffsetStep: Float, yOffsetStep: Float,
             xPixelOffset: Int, yPixelOffset: Int
         ) {
-            Log.v("WallpaperService", "Offset: x=$xOffset (Preview: $isPreview)")
-            
             if (this.xOffset != xOffset) {
                 this.xOffset = xOffset
-                draw()
+                needsDraw = true
             }
         }
 
         override fun onSurfaceChanged(holder: SurfaceHolder?, format: Int, width: Int, height: Int) {
             super.onSurfaceChanged(holder, format, width, height)
             Log.v("WallpaperService", "Surface changed: ${width}x${height}")
-            draw()
+            viewWidth = width.toFloat()
+            viewHeight = height.toFloat()
+            recalculateDimensions()
+            scheduleDraw()
         }
 
         private fun loadWallpaper(uri: Uri) {
@@ -97,7 +130,8 @@ class ScrollingWallpaperService : WallpaperService() {
                     if (newBitmap != null) {
                         wallpaperBitmap?.recycle()
                         wallpaperBitmap = newBitmap
-                        draw()
+                        recalculateDimensions()
+                        scheduleDraw()
                     }
                 }
             } catch (e: Exception) {
@@ -105,46 +139,51 @@ class ScrollingWallpaperService : WallpaperService() {
             }
         }
 
-        private fun draw() {
-            val holder = surfaceHolder
-            var canvas: Canvas? = null
-            try {
-                canvas = holder.lockCanvas()
-                if (canvas != null) {
-                    val bitmap = wallpaperBitmap
-                    if (bitmap != null) {
-                        drawBitmap(canvas, bitmap)
-                    } else {
-                        canvas.drawColor(Color.BLACK)
-                    }
-                }
-            } finally {
-                if (canvas != null) holder.unlockCanvasAndPost(canvas)
-            }
-        }
+        private fun recalculateDimensions() {
+            val bitmap = wallpaperBitmap ?: return
+            if (viewWidth <= 0 || viewHeight <= 0) return
 
-        private fun drawBitmap(canvas: Canvas, bitmap: Bitmap) {
-            val viewWidth = canvas.width.toFloat()
-            val viewHeight = canvas.height.toFloat()
             val bitmapWidth = bitmap.width.toFloat()
             val bitmapHeight = bitmap.height.toFloat()
 
-            val scale = viewHeight / bitmapHeight
-            val minWidth = viewWidth * 1.5f
-            val finalScale = if (bitmapWidth * scale < minWidth) minWidth / bitmapWidth else scale
-            
-            val finalScaledWidth = bitmapWidth * finalScale
-            val matrix = Matrix()
-            matrix.postScale(finalScale, finalScale)
+            // Just fit to height, don't upscale to force scrolling if thin
+            finalScale = viewHeight / bitmapHeight
 
-            val maxScroll = (finalScaledWidth - viewWidth).coerceAtLeast(0f)
-            val tx = -xOffset * maxScroll
-            val ty = (viewHeight - bitmapHeight * finalScale) / 2f
+            val finalScaledWidth = bitmapWidth * finalScale
+            maxScroll = (finalScaledWidth - viewWidth).coerceAtLeast(0f)
+            ty = (viewHeight - bitmapHeight * finalScale) / 2f
+        }
+
+        private fun draw() {
+            val holder = surfaceHolder
+            val canvas = try { holder.lockCanvas() } catch (e: Exception) { null } ?: return
             
-            matrix.postTranslate(tx, ty)
-            
-            canvas.drawColor(Color.BLACK)
-            canvas.drawBitmap(bitmap, matrix, paint)
+            try {
+                val bitmap = wallpaperBitmap
+                if (bitmap != null) {
+                    val tx = if (maxScroll > 0) {
+                        -xOffset * maxScroll
+                    } else {
+                        // Center horizontally if not scrolling
+                        (viewWidth - bitmap.width * finalScale) / 2f
+                    }
+                    
+                    drawMatrix.reset()
+                    drawMatrix.postScale(finalScale, finalScale)
+                    drawMatrix.postTranslate(tx, ty)
+                    
+                    canvas.drawColor(Color.BLACK)
+                    canvas.drawBitmap(bitmap, drawMatrix, paint)
+                } else {
+                    canvas.drawColor(Color.BLACK)
+                }
+            } finally {
+                try {
+                    holder.unlockCanvasAndPost(canvas)
+                } catch (e: Exception) {
+                    Log.e("WallpaperService", "unlockCanvasAndPost error", e)
+                }
+            }
         }
     }
 }
