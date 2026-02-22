@@ -24,6 +24,9 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
     var favorites by mutableStateOf<Set<String>>(emptySet())
         private set
 
+    // A pre-shuffled list of images that haven't been seen yet.
+    private var shuffledUnseenImages = mutableListOf<Pair<Uri, String>>()
+
     init {
         folderUri = repository.getFolderUri()
         currentWallpaperName = repository.getCurrentWallpaperName()
@@ -49,12 +52,14 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
 
             if (currentModified != -1L && currentModified == lastStoredModified && loadedCache.isNotEmpty()) {
                 cachedImages = loadedCache
+                prepareShuffledList()
                 if (currentWallpaperUri == null && cachedImages.isNotEmpty()) {
                     setInitialWallpaper()
                 }
                 isCaching = false
             } else {
                 cachedImages = repository.refreshCache(uri)
+                prepareShuffledList()
                 if (currentWallpaperUri == null && cachedImages.isNotEmpty()) {
                     setInitialWallpaper()
                 }
@@ -63,10 +68,35 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
         }
     }
 
+    /**
+     * Filters the cached images to find those not yet seen, shuffles them,
+     * and stores them in shuffledUnseenImages.
+     */
+    private fun prepareShuffledList() {
+        val unseen = cachedImages.filter { it.first.toString() !in seenImageUris }
+        shuffledUnseenImages = unseen.shuffled().toMutableList()
+    }
+
     private fun setInitialWallpaper() {
-        val pair = cachedImages.random()
+        if (cachedImages.isEmpty()) return
+        
+        // Use the shuffled list if available, otherwise fallback to cache
+        val pair = if (shuffledUnseenImages.isNotEmpty()) {
+            shuffledUnseenImages.removeAt(0)
+        } else {
+            cachedImages.random()
+        }
+        
         currentWallpaperUri = pair.first
         currentWallpaperName = pair.second
+        
+        // If we picked from shuffled, mark it as seen
+        if (pair.first.toString() !in seenImageUris) {
+            val newSeen = seenImageUris + pair.first.toString()
+            seenImageUris = newSeen
+            repository.saveSeenImages(newSeen)
+        }
+        
         repository.updateCurrentWallpaper(pair.first, pair.second)
     }
 
@@ -74,18 +104,22 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
         if (cachedImages.isEmpty()) return
 
         viewModelScope.launch {
-            val unseenImages = cachedImages.filter { it.first.toString() !in seenImageUris }
-            val targetList = if (unseenImages.isEmpty()) {
-                seenImageUris = emptySet()
-                repository.saveSeenImages(emptySet())
-                cachedImages
-            } else {
-                unseenImages
+            // If our pre-shuffled list is empty, regenerate it
+            if (shuffledUnseenImages.isEmpty()) {
+                val unseen = cachedImages.filter { it.first.toString() !in seenImageUris }
+                if (unseen.isEmpty()) {
+                    // All images seen, reset history and shuffle everything
+                    resetSeen()
+                    shuffledUnseenImages = cachedImages.shuffled().toMutableList()
+                } else {
+                    shuffledUnseenImages = unseen.shuffled().toMutableList()
+                }
             }
 
-            val (randomUri, name) = targetList.random()
+            // Pick the next one from the top of the shuffled list
+            val (randomUri, name) = shuffledUnseenImages.removeAt(0)
             
-            // Resolution check
+            // Log resolution (as requested previously)
             repository.getImageResolution(randomUri)
             
             val newSeen = seenImageUris + randomUri.toString()
@@ -112,5 +146,7 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
     fun resetSeen() {
         seenImageUris = emptySet()
         repository.saveSeenImages(emptySet())
+        // Immediately regen the shuffled list since we reset the seen history
+        prepareShuffledList()
     }
 }
