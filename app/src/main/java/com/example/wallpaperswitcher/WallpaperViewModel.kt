@@ -24,6 +24,10 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
     var favorites by mutableStateOf<Set<String>>(emptySet())
         private set
 
+    // Exposed for the images screen
+    var shuffledQueue by mutableStateOf<List<Pair<Uri, String>>>(emptyList())
+        private set
+
     // Manages the shuffling and non-repeating queue logic
     private val playlist = WallpaperPlaylist()
 
@@ -58,6 +62,7 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
             
             // Sync the playlist with the new image list and current history
             playlist.updateData(cachedImages, seenImageUris)
+            shuffledQueue = playlist.getQueue()
             
             if (currentWallpaperUri == null && cachedImages.isNotEmpty()) {
                 setInitialWallpaper()
@@ -68,6 +73,7 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
 
     private fun setInitialWallpaper() {
         val pair = playlist.getNext() ?: return
+        shuffledQueue = playlist.getQueue()
         currentWallpaperUri = pair.first
         currentWallpaperName = pair.second
         
@@ -87,6 +93,8 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
                 pair = playlist.getNext() ?: return@launch
             }
 
+            shuffledQueue = playlist.getQueue()
+
             // Resolution check (logged in repository)
             repository.getImageResolution(pair.first)
             
@@ -95,6 +103,20 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
             
             markAsSeen(pair.first)
             repository.updateCurrentWallpaper(pair.first, pair.second)
+        }
+    }
+
+    fun setWallpaper(pair: Pair<Uri, String>) {
+        viewModelScope.launch {
+            currentWallpaperUri = pair.first
+            currentWallpaperName = pair.second
+            
+            markAsSeen(pair.first)
+            repository.updateCurrentWallpaper(pair.first, pair.second)
+            
+            // Remove from queue if it was there
+            playlist.removeFromQueue(pair.first)
+            shuffledQueue = playlist.getQueue()
         }
     }
     
@@ -123,6 +145,7 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
         seenImageUris = emptySet()
         repository.saveSeenImages(emptySet())
         playlist.updateSeenHistory(emptySet())
+        shuffledQueue = playlist.getQueue()
     }
 }
 
@@ -167,5 +190,11 @@ private class WallpaperPlaylist {
             regenerateQueue()
         }
         return if (queue.isNotEmpty()) queue.removeAt(0) else null
+    }
+
+    fun getQueue(): List<Pair<Uri, String>> = queue.toList()
+
+    fun removeFromQueue(uri: Uri) {
+        queue.removeAll { it.first == uri }
     }
 }
