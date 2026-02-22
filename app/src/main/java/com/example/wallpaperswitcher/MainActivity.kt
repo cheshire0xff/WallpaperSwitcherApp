@@ -33,8 +33,10 @@ import com.example.wallpaperswitcher.ui.theme.WallpaperSwitcherTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 private const val TAG = "WallpaperSwitcher"
+private const val CACHE_FILE_NAME = "image_cache.txt"
 
 class MainActivity : ComponentActivity() {
     private var folderUri by mutableStateOf<Uri?>(null)
@@ -48,10 +50,10 @@ class MainActivity : ComponentActivity() {
         val sharedPreferences = getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE)
         folderUri = sharedPreferences.getString("folder_uri", null)?.toUri()
 
-        // Cache the images asynchronously at application start if a folder is already selected
+        // Asynchronously check and load/refresh cache
         folderUri?.let { uri ->
             lifecycleScope.launch {
-                refreshImageCache(this@MainActivity, uri)
+                checkAndRefreshCache(this@MainActivity, uri)
             }
         }
 
@@ -84,6 +86,46 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    private suspend fun checkAndRefreshCache(context: Context, uri: Uri) {
+        isCaching = true
+        withContext(Dispatchers.IO) {
+            val sharedPreferences = context.getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE)
+            val lastStoredModified = sharedPreferences.getLong("last_modified", -1L)
+            val currentModified = getDirectoryLastModified(context, uri)
+
+            val loadedCache = loadCacheFromFile(context)
+            if (currentModified != -1L && currentModified == lastStoredModified && loadedCache.isNotEmpty()) {
+                Log.d(TAG, "Cache is up to date. Loaded ${loadedCache.size} images.")
+                withContext(Dispatchers.Main) {
+                    cachedImages = loadedCache
+                    isCaching = false
+                }
+            } else {
+                Log.d(TAG, "Cache is outdated or missing. Refreshing...")
+                refreshImageCache(context, uri)
+            }
+        }
+    }
+
+    private fun getDirectoryLastModified(context: Context, uri: Uri): Long {
+        return try {
+            val documentId = DocumentsContract.getTreeDocumentId(uri)
+            val documentUri = DocumentsContract.buildDocumentUriUsingTree(uri, documentId)
+            context.contentResolver.query(
+                documentUri,
+                arrayOf(DocumentsContract.Document.COLUMN_LAST_MODIFIED),
+                null, null, null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    cursor.getLong(0)
+                } else -1L
+            } ?: -1L
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting last modified: ${e.message}")
+            -1L
         }
     }
 
@@ -121,15 +163,60 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                cachedImages = newList
+
+                val currentModified = getDirectoryLastModified(context, uri)
+                saveCacheToFile(context, newList)
+                context.getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE).edit {
+                    putLong("last_modified", currentModified)
+                }
+
+                withContext(Dispatchers.Main) {
+                    cachedImages = newList
+                }
                 val totalTime = System.currentTimeMillis() - startTime
-                Log.d(TAG, "Cache refreshed in ${totalTime}ms, found ${newList.size} images.")
+                Log.d(TAG, "Cache refreshed and saved in ${totalTime}ms, found ${newList.size} images.")
             } catch (e: Exception) {
                 Log.e(TAG, "Error refreshing cache: ${e.message}")
             } finally {
-                isCaching = false
+                withContext(Dispatchers.Main) {
+                    isCaching = false
+                }
             }
         }
+    }
+
+    private fun saveCacheToFile(context: Context, list: List<Pair<Uri, String>>) {
+        try {
+            val file = File(context.cacheDir, CACHE_FILE_NAME)
+            file.bufferedWriter().use { writer ->
+                list.forEach { (uri, name) ->
+                    writer.write("${uri}|${name}")
+                    writer.newLine()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving cache to file: ${e.message}")
+        }
+    }
+
+    private fun loadCacheFromFile(context: Context): List<Pair<Uri, String>> {
+        val list = mutableListOf<Pair<Uri, String>>()
+        try {
+            val file = File(context.cacheDir, CACHE_FILE_NAME)
+            if (file.exists()) {
+                file.bufferedReader().useLines { lines ->
+                    lines.forEach { line ->
+                        val parts = line.split("|", limit = 2)
+                        if (parts.size == 2) {
+                            list.add(parts[0].toUri() to parts[1])
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading cache from file: ${e.message}")
+        }
+        return list
     }
 
     private suspend fun applyNextWallpaper() {
