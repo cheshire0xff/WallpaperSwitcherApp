@@ -2,7 +2,6 @@ package com.cheshire.wallpaperswitcher.ui.screens.dashboard
 
 import android.app.WallpaperInfo
 import android.app.WallpaperManager
-import android.content.ComponentName
 import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -14,7 +13,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -25,6 +23,8 @@ import com.cheshire.wallpaperswitcher.ui.Screen
 import com.cheshire.wallpaperswitcher.ui.components.CurrentWallpaperCard
 import com.cheshire.wallpaperswitcher.ui.components.EngineStatusSection
 import com.cheshire.wallpaperswitcher.ui.components.FolderDetailsDialog
+import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
+
 
 /**
  * Main dashboard screen composable.
@@ -32,7 +32,7 @@ import com.cheshire.wallpaperswitcher.ui.components.FolderDetailsDialog
 @Composable
 fun DashboardScreen(
     modifier: Modifier = Modifier,
-    viewModel: DashboardViewModel,
+    viewModel: WallpaperViewModel,
     onNavigate: (Screen) -> Unit
 ) {
     val context = LocalContext.current

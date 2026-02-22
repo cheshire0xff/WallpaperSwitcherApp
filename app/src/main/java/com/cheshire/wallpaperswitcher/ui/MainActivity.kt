@@ -20,7 +20,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.cheshire.wallpaperswitcher.data.WallpaperRepository
 import com.cheshire.wallpaperswitcher.ui.screens.dashboard.DashboardScreen
-import com.cheshire.wallpaperswitcher.ui.screens.dashboard.DashboardViewModel
+import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
 import com.cheshire.wallpaperswitcher.ui.screens.grid.ImageGridScreen
 import com.cheshire.wallpaperswitcher.ui.theme.WallpaperSwitcherTheme
 
@@ -43,13 +43,13 @@ class MainActivity : ComponentActivity() {
         val factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return DashboardViewModel(repository) as T
+                return WallpaperViewModel(repository) as T
             }
         }
 
         setContent {
             WallpaperSwitcherTheme {
-                val viewModel: DashboardViewModel = viewModel(factory = factory)
+                val viewModel: WallpaperViewModel = viewModel(factory = factory)
                 
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -70,7 +70,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun WallpaperSwitcherApp(
     modifier: Modifier = Modifier,
-    viewModel: DashboardViewModel
+    viewModel: WallpaperViewModel
 ) {
     var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
 

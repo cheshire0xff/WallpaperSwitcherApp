@@ -17,8 +17,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.cheshire.wallpaperswitcher.ui.components.EnlargedImageDialog
-import com.cheshire.wallpaperswitcher.ui.screens.dashboard.DashboardViewModel
-
+import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
 /**
  * Screen displaying a lazy-loaded grid of images.
  */
@@ -27,7 +26,7 @@ import com.cheshire.wallpaperswitcher.ui.screens.dashboard.DashboardViewModel
 fun ImageGridScreen(
     title: String,
     images: List<Pair<Uri, String>>,
-    viewModel: DashboardViewModel,
+    viewModel: WallpaperViewModel,
     onBack: () -> Unit
 ) {
     var selectedImage by remember { mutableStateOf<Pair<Uri, String>?>(null) }
