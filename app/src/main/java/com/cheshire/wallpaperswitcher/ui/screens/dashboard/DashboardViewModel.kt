@@ -1,4 +1,4 @@
-package com.cheshire.wallpaperswitcher
+package com.cheshire.wallpaperswitcher.ui.screens.dashboard
 
 import android.net.Uri
 import androidx.compose.runtime.getValue
@@ -6,9 +6,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cheshire.wallpaperswitcher.data.WallpaperRepository
 import kotlinx.coroutines.launch
 
-class WallpaperViewModel(private val repository: WallpaperRepository) : ViewModel() {
+class DashboardViewModel(private val repository: WallpaperRepository) : ViewModel() {
     var folderUri by mutableStateOf<Uri?>(null)
         private set
     var cachedImages by mutableStateOf<List<Pair<Uri, String>>>(emptyList())

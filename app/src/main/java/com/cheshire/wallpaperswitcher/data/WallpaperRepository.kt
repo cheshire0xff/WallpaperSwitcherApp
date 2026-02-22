@@ -1,4 +1,4 @@
-package com.cheshire.wallpaperswitcher
+package com.cheshire.wallpaperswitcher.data
 
 import android.content.Context
 import android.content.Intent

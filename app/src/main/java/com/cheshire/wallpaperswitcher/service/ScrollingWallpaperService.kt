@@ -1,4 +1,4 @@
-package com.cheshire.wallpaperswitcher
+package com.cheshire.wallpaperswitcher.service
 
 import android.app.WallpaperManager
 import android.content.BroadcastReceiver
@@ -16,7 +16,6 @@ import android.os.Build
 import android.os.Bundle
 import android.service.wallpaper.WallpaperService
 import android.util.Log
-import android.view.MotionEvent
 import android.view.SurfaceHolder
 
 class ScrollingWallpaperService : WallpaperService() {
