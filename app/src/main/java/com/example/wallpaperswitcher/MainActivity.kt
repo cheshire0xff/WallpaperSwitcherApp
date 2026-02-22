@@ -17,6 +17,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,7 +50,9 @@ class MainActivity : ComponentActivity() {
     private var cachedImages by mutableStateOf<List<Pair<Uri, String>>>(emptyList())
     private var isCaching by mutableStateOf(false)
     private var currentWallpaperName by mutableStateOf<String?>(null)
+    private var currentWallpaperUri by mutableStateOf<Uri?>(null)
     private var seenImageUris by mutableStateOf<Set<String>>(emptySet())
+    private var favoriteUris by mutableStateOf<Set<String>>(emptySet())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,7 +61,9 @@ class MainActivity : ComponentActivity() {
         val sharedPreferences = getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE)
         folderUri = sharedPreferences.getString("folder_uri", null)?.toUri()
         currentWallpaperName = sharedPreferences.getString("current_wallpaper_name", null)
+        currentWallpaperUri = sharedPreferences.getString("current_wallpaper_uri", null)?.toUri()
         seenImageUris = sharedPreferences.getStringSet("seen_images", emptySet()) ?: emptySet()
+        favoriteUris = sharedPreferences.getStringSet("favorite_images", emptySet()) ?: emptySet()
 
         // Asynchronously check and load/refresh cache
         folderUri?.let { uri ->
@@ -79,8 +86,10 @@ class MainActivity : ComponentActivity() {
                             folderUri = folderUri,
                             cachedImagesCount = cachedImages.size,
                             seenImagesCount = seenImageUris.size,
+                            favoritesCount = favoriteUris.size,
                             isCaching = isCaching,
                             currentWallpaperName = currentWallpaperName,
+                            isFavorite = currentWallpaperUri?.toString()?.let { it in favoriteUris } ?: false,
                             onFolderSelected = { uri ->
                                 folderUri = uri
                                 lifecycleScope.launch {
@@ -91,6 +100,9 @@ class MainActivity : ComponentActivity() {
                                 lifecycleScope.launch {
                                     applyNextWallpaper()
                                 }
+                            },
+                            onToggleFavorite = {
+                                toggleFavorite()
                             },
                             onResetSeen = {
                                 seenImageUris = emptySet()
@@ -103,6 +115,19 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    private fun toggleFavorite() {
+        val uriStr = currentWallpaperUri?.toString() ?: return
+        val newFavorites = if (uriStr in favoriteUris) {
+            favoriteUris - uriStr
+        } else {
+            favoriteUris + uriStr
+        }
+        favoriteUris = newFavorites
+        getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE).edit {
+            putStringSet("favorite_images", newFavorites)
         }
     }
 
@@ -213,6 +238,7 @@ class MainActivity : ComponentActivity() {
     private fun setInitialWallpaperInfo(context: Context, pair: Pair<Uri, String>) {
         val (uri, name) = pair
         currentWallpaperName = name
+        currentWallpaperUri = uri
         context.getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE).edit {
             putString("current_wallpaper_uri", uri.toString())
             putString("current_wallpaper_name", name)
@@ -306,6 +332,7 @@ class MainActivity : ComponentActivity() {
 
                 withContext(Dispatchers.Main) {
                     currentWallpaperName = name
+                    currentWallpaperUri = randomUri
                     seenImageUris = newSeen
                     Toast.makeText(this@MainActivity, "Wallpaper Updated!", Toast.LENGTH_SHORT).show()
                 }
@@ -322,10 +349,13 @@ fun WallpaperSwitcherScreen(
     folderUri: Uri?,
     cachedImagesCount: Int,
     seenImagesCount: Int,
+    favoritesCount: Int,
     isCaching: Boolean,
     currentWallpaperName: String?,
+    isFavorite: Boolean,
     onFolderSelected: (Uri) -> Unit,
     onNextWallpaper: () -> Unit,
+    onToggleFavorite: () -> Unit,
     onResetSeen: () -> Unit
 ) {
     val context = LocalContext.current
@@ -373,6 +403,7 @@ fun WallpaperSwitcherScreen(
                     Text("Total Images: $cachedImagesCount", fontWeight = FontWeight.Bold)
                     Text("Seen: $seenImagesCount")
                     Text("New: ${cachedImagesCount - seenImagesCount}")
+                    Text("Favorites: $favoritesCount")
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("Path:", fontWeight = FontWeight.Bold)
                     Text(
@@ -422,20 +453,34 @@ fun WallpaperSwitcherScreen(
                         Text("Scanning folder...", style = MaterialTheme.typography.bodySmall)
                     } else {
                         currentWallpaperName?.let {
-                            Text(
-                                text = "Current Wallpaper:",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = it,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Current Wallpaper:",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = it,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                IconButton(onClick = { onToggleFavorite() }) {
+                                    Icon(
+                                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                        contentDescription = "Toggle Favorite",
+                                        tint = if (isFavorite) Color.Red else MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                            }
                         }
                     }
                 }
