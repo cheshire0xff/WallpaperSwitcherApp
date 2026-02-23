@@ -37,7 +37,7 @@ class ScrollingWallpaperService : WallpaperService() {
         private var viewWidth = 0f
         private var viewHeight = 0f
         
-        private var needsDraw = false
+        private var isFramePending = false
 
         private val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
@@ -75,30 +75,33 @@ class ScrollingWallpaperService : WallpaperService() {
             if (visible) {
                 scheduleDraw()
             } else {
+                isFramePending = false
                 Choreographer.getInstance().removeFrameCallback(this)
             }
         }
 
         override fun doFrame(frameTimeNanos: Long) {
-            if (needsDraw) {
-                draw()
-                needsDraw = false
-            }
+            isFramePending = false // Reset the gatekeeper
+            
             if (isVisible) {
-                Choreographer.getInstance().postFrameCallback(this)
+                draw()
             }
         }
 
         private fun scheduleDraw() {
-            needsDraw = true
-            Choreographer.getInstance().removeFrameCallback(this)
-            Choreographer.getInstance().postFrameCallback(this)
+            // If a frame is already scheduled, we don't need to do anything.
+            // The upcoming doFrame will pick up the latest xOffset anyway.
+            if (!isFramePending) {
+                isFramePending = true
+                Choreographer.getInstance().postFrameCallback(this)
+            }
         }
 
         override fun onDestroy() {
             Log.v("WallpaperService", "Engine onDestroy (Preview: $isPreview)")
             super.onDestroy()
             unregisterReceiver(receiver)
+            isFramePending = false
             Choreographer.getInstance().removeFrameCallback(this)
             wallpaperBitmap?.recycle()
         }
@@ -110,7 +113,7 @@ class ScrollingWallpaperService : WallpaperService() {
         ) {
             if (this.xOffset != xOffset) {
                 this.xOffset = xOffset
-                needsDraw = true
+                scheduleDraw()
             }
         }
 
