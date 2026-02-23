@@ -1,4 +1,5 @@
 import java.io.ByteArrayOutputStream
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -38,6 +39,21 @@ android {
         
         buildConfigField("String", "GIT_HASH", "\"${getGitHash()}\"")
     }
+    val localProperties = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localProperties.load(localPropertiesFile.inputStream())
+    }
+    signingConfigs {
+        create("release") {
+            // 2. Extract values from local.properties
+            val path = localProperties.getProperty("RELEASE_KEY_PATH")
+            storeFile = if (path != null) file(path) else null
+            storePassword = localProperties.getProperty("RELEASE_STORE_PASSWORD")
+            keyAlias = "key0" // Or whatever alias you chose in the form
+            keyPassword = localProperties.getProperty("RELEASE_KEY_PASSWORD")
+        }
+    }
 
     buildTypes {
         release {
@@ -46,6 +62,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
