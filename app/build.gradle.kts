@@ -1,4 +1,3 @@
-import java.io.ByteArrayOutputStream
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 
@@ -20,7 +19,7 @@ fun getGitHash(): String {
         val result = proc.inputStream.bufferedReader().readText().trim()
 
         result.ifEmpty { "unknown" }
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         "none"
     }
 }
@@ -33,8 +32,8 @@ android {
         applicationId = "com.cheshire.wallpaperswitcher"
         minSdk = 35
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         

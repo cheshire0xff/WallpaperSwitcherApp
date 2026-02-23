@@ -159,7 +159,7 @@ class WallpaperRepository(private val context: Context) {
                 BitmapFactory.decodeStream(input, null, options)
                 "${options.outWidth}x${options.outHeight}"
             } ?: "Unknown"
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             "Unknown"
         }
     }

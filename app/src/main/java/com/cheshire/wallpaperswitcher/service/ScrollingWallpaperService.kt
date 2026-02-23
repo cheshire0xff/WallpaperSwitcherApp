@@ -7,7 +7,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
@@ -56,14 +55,14 @@ class ScrollingWallpaperService : WallpaperService() {
             Log.v("WallpaperService", "Engine onCreate (Preview: $isPreview)")
             
             val metrics = resources.displayMetrics
-            val wm = getSystemService(Context.WALLPAPER_SERVICE) as WallpaperManager
+            val wm = getSystemService(WALLPAPER_SERVICE) as WallpaperManager
             // Suggest double width for scrolling
             wm.suggestDesiredDimensions(metrics.widthPixels * 2, metrics.heightPixels)
             
             val filter = IntentFilter("com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER")
-            registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+            registerReceiver(receiver, filter, RECEIVER_EXPORTED)
 
-            val prefs = getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE)
+            val prefs = getSharedPreferences("WallpaperPrefs", MODE_PRIVATE)
             prefs.getString("current_wallpaper_uri", null)?.let {
                 loadWallpaper(it.toUri())
             }
