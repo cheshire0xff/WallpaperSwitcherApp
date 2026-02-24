@@ -19,7 +19,7 @@ private const val FAVORITES_FILE = "favorites.txt"
 private const val TO_REMOVE_FILE = "to_remove.txt"
 private const val PREFS_NAME = "WallpaperPrefs"
 
-class WallpaperRepository(private val context: Context) {
+class WallpaperRepository(val context: Context) {
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     private val baseDir: File

@@ -1,0 +1,262 @@
+package com.cheshire.wallpaperswitcher.ui
+
+import android.app.WallpaperInfo
+import android.app.WallpaperManager
+import android.content.Context
+import android.content.Intent
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.cheshire.wallpaperswitcher.service.ScrollingWallpaperService
+import com.cheshire.wallpaperswitcher.ui.components.InformationDialog
+import com.cheshire.wallpaperswitcher.ui.screens.DashboardScreen
+import com.cheshire.wallpaperswitcher.ui.screens.ImageGridScreen
+import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
+
+/**
+ * Available screens in the app for navigation.
+ */
+enum class Screen(val title: String) {
+    Dashboard("Wallpaper Switcher"),
+    Queue("Upcoming Queue"),
+    Favorites("Favorites"),
+    History("History"),
+    ToRemove("To Remove")
+}
+
+@Composable
+fun MainAppShell(viewModel: WallpaperViewModel) {
+    val context = LocalContext.current
+    var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
+    var isEngineEnabled by remember { mutableStateOf(isWallpaperEngineActive(context)) }
+    var showInformation by remember { mutableStateOf(false) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                isEngineEnabled = isWallpaperEngineActive(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            viewModel.updateFolderUri(uri)
+        }
+    }
+
+    if (showInformation) {
+        InformationDialog(
+            totalImages = viewModel.cachedImages.size,
+            seenCount = viewModel.seenImageNames.size,
+            favoritesCount = viewModel.favoriteNames.size,
+            toRemoveCount = viewModel.toRemoveNames.size,
+            folderUri = viewModel.folderUri,
+            onResetSeen = { viewModel.resetSeen() },
+            onDismiss = { showInformation = false }
+        )
+    }
+
+    Scaffold(
+        topBar = {
+            AppTopBar(
+                currentScreen = currentScreen,
+                onShowInformation = { showInformation = true },
+                onChangeFolder = { launcher.launch(null) }
+            )
+        },
+        bottomBar = {
+            AppBottomBar(
+                currentScreen = currentScreen,
+                viewModel = viewModel,
+                onNavigate = { currentScreen = it }
+            )
+        },
+        floatingActionButton = {
+            if (currentScreen == Screen.Dashboard && viewModel.folderUri != null) {
+                ExtendedFloatingActionButton(
+                    onClick = {
+                        if (!isEngineEnabled) {
+                            Toast.makeText(context, "Please enable the engine first", Toast.LENGTH_SHORT).show()
+                        }
+                        viewModel.nextWallpaper()
+                    },
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ) {
+                    Text(text = "Next Wallpaper")
+                }
+            }
+        }
+    ) { innerPadding ->
+        Box(modifier = Modifier.padding(innerPadding)) {
+            NavigationHost(
+                currentScreen = currentScreen,
+                viewModel = viewModel,
+                isEngineEnabled = isEngineEnabled,
+                onSelectFolder = { launcher.launch(null) },
+                onNavigate = { currentScreen = it }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppTopBar(
+    currentScreen: Screen,
+    onShowInformation: () -> Unit,
+    onChangeFolder: () -> Unit
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
+    TopAppBar(
+        title = { Text(currentScreen.title) },
+        actions = {
+            IconButton(onClick = { showMenu = true }) {
+                Icon(Icons.Default.MoreVert, contentDescription = "More options")
+            }
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Information") },
+                    onClick = {
+                        showMenu = false
+                        onShowInformation()
+                    },
+                    leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+                )
+                DropdownMenuItem(
+                    text = { Text("Change Folder") },
+                    onClick = {
+                        showMenu = false
+                        onChangeFolder()
+                    },
+                    leadingIcon = { Icon(Icons.Default.FolderOpen, contentDescription = null) }
+                )
+            }
+        }
+    )
+}
+
+@Composable
+fun AppBottomBar(
+    currentScreen: Screen,
+    viewModel: WallpaperViewModel,
+    onNavigate: (Screen) -> Unit
+) {
+    if (viewModel.folderUri != null) {
+        NavigationBar {
+            NavigationBarItem(
+                icon = { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") },
+                label = { Text("Dash") },
+                selected = currentScreen == Screen.Dashboard,
+                onClick = { onNavigate(Screen.Dashboard) }
+            )
+            NavigationBarItem(
+                icon = { Icon(Icons.AutoMirrored.Filled.PlaylistPlay, contentDescription = "Queue") },
+                label = { Text("Queue") },
+                selected = currentScreen == Screen.Queue,
+                onClick = { onNavigate(Screen.Queue) },
+                enabled = viewModel.cachedImages.isNotEmpty()
+            )
+            NavigationBarItem(
+                icon = { Icon(Icons.Default.Favorite, contentDescription = "Favorites") },
+                label = { Text("Favs") },
+                selected = currentScreen == Screen.Favorites,
+                onClick = { onNavigate(Screen.Favorites) },
+                enabled = viewModel.favoriteNames.isNotEmpty()
+            )
+            NavigationBarItem(
+                icon = { Icon(Icons.Default.History, contentDescription = "History") },
+                label = { Text("History") },
+                selected = currentScreen == Screen.History,
+                onClick = { onNavigate(Screen.History) },
+                enabled = viewModel.seenImageNames.isNotEmpty()
+            )
+            NavigationBarItem(
+                icon = { Icon(Icons.Default.DeleteSweep, contentDescription = "To Remove") },
+                label = { Text("ToRemove") },
+                selected = currentScreen == Screen.ToRemove,
+                onClick = { onNavigate(Screen.ToRemove) },
+                enabled = viewModel.toRemoveNames.isNotEmpty()
+            )
+        }
+    }
+}
+
+@Composable
+fun NavigationHost(
+    currentScreen: Screen,
+    viewModel: WallpaperViewModel,
+    isEngineEnabled: Boolean,
+    onSelectFolder: () -> Unit,
+    onNavigate: (Screen) -> Unit
+) {
+    when (currentScreen) {
+        Screen.Dashboard -> {
+            DashboardScreen(
+                viewModel = viewModel,
+                isEngineEnabled = isEngineEnabled,
+                onSelectFolder = onSelectFolder
+            )
+        }
+        Screen.Queue -> {
+            ImageGridScreen(
+                images = viewModel.shuffledQueue,
+                viewModel = viewModel,
+                onBack = { onNavigate(Screen.Dashboard) }
+            )
+        }
+        Screen.Favorites -> {
+            ImageGridScreen(
+                images = viewModel.favoriteImages,
+                viewModel = viewModel,
+                onBack = { onNavigate(Screen.Dashboard) }
+            )
+        }
+        Screen.History -> {
+            ImageGridScreen(
+                images = viewModel.historyImages,
+                viewModel = viewModel,
+                onBack = { onNavigate(Screen.Dashboard) }
+            )
+        }
+        Screen.ToRemove -> {
+            ImageGridScreen(
+                images = viewModel.toRemoveImages,
+                viewModel = viewModel,
+                onBack = { onNavigate(Screen.Dashboard) }
+            )
+        }
+    }
+}
+
+private fun isWallpaperEngineActive(context: Context): Boolean {
+    val wm = context.getSystemService(Context.WALLPAPER_SERVICE) as WallpaperManager
+    val info: WallpaperInfo? = wm.wallpaperInfo
+    return info != null && info.packageName == context.packageName && 
+           info.serviceName == ScrollingWallpaperService::class.java.name
+}

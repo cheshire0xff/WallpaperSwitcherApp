@@ -1,12 +1,5 @@
 package com.cheshire.wallpaperswitcher.ui.screens
 
-import android.app.WallpaperInfo
-import android.app.WallpaperManager
-import android.content.Context
-import android.content.Intent
-import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -15,66 +8,23 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.cheshire.wallpaperswitcher.service.ScrollingWallpaperService
-import com.cheshire.wallpaperswitcher.ui.Screen
 import com.cheshire.wallpaperswitcher.ui.components.CurrentWallpaperCard
 import com.cheshire.wallpaperswitcher.ui.components.EngineStatusSection
-import com.cheshire.wallpaperswitcher.ui.components.InformationDialog
 import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
 
 
 /**
- * Main dashboard screen composable.
+ * Main dashboard screen content.
  */
 @Composable
 fun DashboardScreen(
     modifier: Modifier = Modifier,
     viewModel: WallpaperViewModel,
-    onNavigate: (Screen) -> Unit
+    isEngineEnabled: Boolean,
+    onSelectFolder: () -> Unit
 ) {
     val context = LocalContext.current
-    var isEngineEnabled by remember { mutableStateOf(isWallpaperEngineActive(context)) }
-    var showInformation by remember { mutableStateOf(false) }
-
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                isEngineEnabled = isWallpaperEngineActive(context)
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
-        if (uri != null) {
-            context.contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-            viewModel.updateFolderUri(uri)
-        }
-    }
-
-    if (showInformation) {
-        InformationDialog(
-            totalImages = viewModel.cachedImages.size,
-            seenCount = viewModel.seenImageNames.size,
-            favoritesCount = viewModel.favoriteNames.size,
-            toRemoveCount = viewModel.toRemoveNames.size,
-            folderUri = viewModel.folderUri,
-            onResetSeen = { viewModel.resetSeen() },
-            onDismiss = { showInformation = false }
-        )
-    }
 
     Column(
         modifier = modifier
@@ -85,100 +35,28 @@ fun DashboardScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (viewModel.folderUri == null) {
-            Button(onClick = { launcher.launch(null) }) {
-                Text("Select Wallpaper Folder")
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                Button(onClick = onSelectFolder) {
+                    Text("Select Wallpaper Folder")
+                }
             }
         } else {
-            CurrentWallpaperCard(
-                name = viewModel.currentWallpaperName,
-                uri = viewModel.currentWallpaperUri,
-                isFavorite = viewModel.currentWallpaperName in viewModel.favoriteNames,
-                isToRemove = viewModel.currentWallpaperName in viewModel.toRemoveNames,
-                isCaching = viewModel.isCaching,
-                onToggleFavorite = { viewModel.toggleFavorite() },
-                onToggleToRemove = { viewModel.toggleToRemove() },
-                onEnlarge = { _, _ -> /* enlargement handled inside CurrentWallpaperCard or passed up */ }
-            )
+            if (isEngineEnabled) {
+                CurrentWallpaperCard(
+                    name = viewModel.currentWallpaperName,
+                    uri = viewModel.currentWallpaperUri,
+                    metadata = viewModel.currentMetadata,
+                    isFavorite = viewModel.currentWallpaperName in viewModel.favoriteNames,
+                    isToRemove = viewModel.currentWallpaperName in viewModel.toRemoveNames,
+                    onToggleFavorite = { viewModel.toggleFavorite() },
+                    onToggleToRemove = { viewModel.toggleToRemove() }
+                )
+            }
 
             EngineStatusSection(context = context, isEngineEnabled = isEngineEnabled)
-
-            Button(
-                onClick = { 
-                    if (!isEngineEnabled) {
-                        Toast.makeText(context, "Please enable the engine first", Toast.LENGTH_SHORT).show()
-                    }
-                    viewModel.nextWallpaper() 
-                },
-                enabled = !viewModel.isCaching && viewModel.cachedImages.isNotEmpty(),
-                modifier = Modifier.fillMaxWidth().height(56.dp)
-            ) {
-                Text("Next Wallpaper")
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Navigation Row 1
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { onNavigate(Screen.Queue) },
-                    modifier = Modifier.weight(1f),
-                    enabled = viewModel.cachedImages.isNotEmpty()
-                ) {
-                    Text("Queue", textAlign = TextAlign.Center)
-                }
-                OutlinedButton(
-                    onClick = { onNavigate(Screen.Favorites) },
-                    modifier = Modifier.weight(1f),
-                    enabled = viewModel.favoriteNames.isNotEmpty()
-                ) {
-                    Text("Favs", textAlign = TextAlign.Center)
-                }
-            }
-
-            // Navigation Row 2
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { onNavigate(Screen.History) },
-                    modifier = Modifier.weight(1f),
-                    enabled = viewModel.seenImageNames.isNotEmpty()
-                ) {
-                    Text("History", textAlign = TextAlign.Center)
-                }
-                OutlinedButton(
-                    onClick = { onNavigate(Screen.ToRemove) },
-                    modifier = Modifier.weight(1f),
-                    enabled = viewModel.toRemoveNames.isNotEmpty()
-                ) {
-                    Text("To Remove", textAlign = TextAlign.Center)
-                }
-            }
-
-            OutlinedButton(
-                onClick = { showInformation = true },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Information")
-            }
-
-            OutlinedButton(
-                onClick = { launcher.launch(null) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Change Folder")
-            }
+            
+            // Extra space at bottom
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
-}
-
-private fun isWallpaperEngineActive(context: Context): Boolean {
-    val wm = context.getSystemService(Context.WALLPAPER_SERVICE) as WallpaperManager
-    val info: WallpaperInfo? = wm.wallpaperInfo
-    return info != null && info.packageName == context.packageName && 
-           info.serviceName == ScrollingWallpaperService::class.java.name
 }

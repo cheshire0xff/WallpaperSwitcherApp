@@ -4,36 +4,14 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.cheshire.wallpaperswitcher.data.WallpaperRepository
-import com.cheshire.wallpaperswitcher.ui.screens.DashboardScreen
-import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
-import com.cheshire.wallpaperswitcher.ui.screens.ImageGridScreen
 import com.cheshire.wallpaperswitcher.ui.theme.WallpaperSwitcherTheme
-
-/**
- * Available screens in the app for navigation.
- */
-enum class Screen {
-    Dashboard,
-    Queue,
-    Favorites,
-    History,
-    ToRemove
-}
+import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,78 +29,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             WallpaperSwitcherTheme {
                 val viewModel: WallpaperViewModel = viewModel(factory = factory)
-                
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                        WallpaperSwitcherApp(
-                            modifier = Modifier.padding(innerPadding),
-                            viewModel = viewModel
-                        )
-                    }
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    MainAppShell(viewModel)
                 }
             }
-        }
-    }
-}
-
-@Composable
-fun WallpaperSwitcherApp(
-    modifier: Modifier = Modifier,
-    viewModel: WallpaperViewModel
-) {
-    var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
-
-    when (currentScreen) {
-        Screen.Dashboard -> {
-            DashboardScreen(
-                modifier = modifier,
-                viewModel = viewModel,
-                onNavigate = { currentScreen = it }
-            )
-        }
-        Screen.Queue -> {
-            ImageGridScreen(
-                title = "Upcoming Queue",
-                images = viewModel.shuffledQueue,
-                viewModel = viewModel,
-                onBack = { currentScreen = Screen.Dashboard }
-            )
-        }
-        Screen.Favorites -> {
-            val favImages = viewModel.favoriteNames.mapNotNull { name ->
-                viewModel.getUriForName(name)?.let { it to name }
-            }
-            ImageGridScreen(
-                title = "Favorites",
-                images = favImages,
-                viewModel = viewModel,
-                onBack = { currentScreen = Screen.Dashboard }
-            )
-        }
-        Screen.History -> {
-            val historyImages = viewModel.seenImageNames.mapNotNull { name ->
-                viewModel.getUriForName(name)?.let { it to name }
-            }
-            ImageGridScreen(
-                title = "History (Already Seen)",
-                images = historyImages,
-                viewModel = viewModel,
-                onBack = { currentScreen = Screen.Dashboard }
-            )
-        }
-        Screen.ToRemove -> {
-            val toRemoveImages = viewModel.toRemoveNames.mapNotNull { name ->
-                viewModel.getUriForName(name)?.let { it to name }
-            }
-            ImageGridScreen(
-                title = "To Remove",
-                images = toRemoveImages,
-                viewModel = viewModel,
-                onBack = { currentScreen = Screen.Dashboard }
-            )
         }
     }
 }

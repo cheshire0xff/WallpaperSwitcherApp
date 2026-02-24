@@ -1,103 +1,189 @@
 package com.cheshire.wallpaperswitcher.ui.components
 
 import android.net.Uri
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperMetadata
 
-/**
- * Displays information about the current wallpaper and its thumbnail.
- */
 @Composable
 fun CurrentWallpaperCard(
+    modifier: Modifier = Modifier,
     name: String?,
     uri: Uri?,
+    metadata: WallpaperMetadata,
     isFavorite: Boolean,
     isToRemove: Boolean,
-    isCaching: Boolean,
     onToggleFavorite: () -> Unit,
-    onToggleToRemove: () -> Unit,
-    onEnlarge: (Uri, String) -> Unit
+    onToggleToRemove: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+    ElevatedCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .aspectRatio(0.6f),
+        shape = RoundedCornerShape(28.dp) // extraLarge equivalent
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            if (isCaching) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                Text("Scanning folder...", style = MaterialTheme.typography.bodySmall)
-            } else {
-                name?.let { fileName ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Layer 1: The Image
+            AsyncImage(
+                model = uri,
+                contentDescription = "Current Wallpaper",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+
+            // Layer 2: Status Badges (Top Layer)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                // Favorite Badge (Left)
+                if (isFavorite) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = CircleShape,
+                        modifier = Modifier.size(32.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Current Wallpaper:",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = fileName,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.Favorite,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
-                        Row {
-                            IconButton(onClick = onToggleFavorite) {
-                                Icon(
-                                    imageVector = if (isFavorite) Icons.Default.Star else Icons.Outlined.Star,
-                                    contentDescription = "Toggle Favorite",
-                                    tint = if (isFavorite) Color.White else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.3f)
-                                )
-                            }
-                            IconButton(onClick = onToggleToRemove) {
-                                Icon(
-                                    imageVector = if (isToRemove) Icons.Default.Delete else Icons.Outlined.Delete,
-                                    contentDescription = "Toggle To Remove",
-                                    tint = if (isToRemove) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.3f)
-                                )
-                            }
+                    }
+                } else {
+                    Spacer(Modifier.size(32.dp))
+                }
+
+                // Removal Badge (Right)
+                if (isToRemove) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = CircleShape,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.DeleteSweep,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Layer 3 & 4: Information Scrim and Buttons (Bottom Overlay)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)),
+                            startY = 0f
+                        )
+                    )
+                    .padding(16.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Text Layout
+                    Column {
+                        Text(
+                            text = name ?: "Unknown Wallpaper",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.alpha(0.7f)
+                        ) {
+                            Text(
+                                text = metadata.fileSizeMb,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White
+                            )
+                            Text(
+                                text = metadata.dimensions,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White
+                            )
                         }
                     }
 
-                    if (uri != null) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        AsyncImage(
-                            model = uri,
-                            contentDescription = "Current wallpaper thumbnail",
-                            modifier = Modifier
-                                .height(320.dp)
-                                .aspectRatio(9f / 16f)
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable { onEnlarge(uri, fileName) },
-                            contentScale = ContentScale.Crop
-                        )
+                    // Split Action Buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // Favorite Button
+                        FilledTonalIconButton(
+                            onClick = onToggleFavorite,
+                            colors = if (isFavorite) {
+                                IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            } else {
+                                IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = Color.White.copy(alpha = 0.2f),
+                                    contentColor = Color.White
+                                )
+                            }
+                        ) {
+                            Icon(
+                                if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
+                                contentDescription = "Favorite"
+                            )
+                        }
+
+                        // Remove Button
+                        FilledTonalIconButton(
+                            onClick = onToggleToRemove,
+                            colors = if (isToRemove) {
+                                IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            } else {
+                                IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = Color.White.copy(alpha = 0.2f),
+                                    contentColor = Color.White
+                                )
+                            }
+                        ) {
+                            Icon(
+                                if (isToRemove) Icons.Default.DeleteSweep else Icons.Outlined.DeleteOutline,
+                                contentDescription = "To Remove"
+                            )
+                        }
                     }
                 }
             }
