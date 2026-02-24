@@ -92,6 +92,7 @@ fun MainAppShell(viewModel: WallpaperViewModel) {
                 onNavigate = { currentScreen = it }
             )
         },
+        floatingActionButtonPosition = FabPosition.Center,
         floatingActionButton = {
             if (currentScreen == Screen.Dashboard && viewModel.folderUri != null) {
                 ExtendedFloatingActionButton(
