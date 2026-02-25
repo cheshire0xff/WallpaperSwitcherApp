@@ -32,11 +32,11 @@ android {
         applicationId = "com.cheshire.wallpaperswitcher"
         minSdk = 35
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        
+
         buildConfigField("String", "GIT_HASH", "\"${getGitHash()}\"")
     }
     val localProperties = Properties()
@@ -76,7 +76,7 @@ android {
         compose = true
         buildConfig = true
     }
-    
+
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
@@ -97,13 +97,13 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.documentfile)
     implementation(libs.coil.compose)
-    
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.test.core.ktx)
-    
+
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

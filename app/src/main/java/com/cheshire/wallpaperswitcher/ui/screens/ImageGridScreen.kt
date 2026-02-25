@@ -59,14 +59,15 @@ fun ImageGridScreen(
         }
     }
 
-    if (selectedImage != null) {
+    selectedImage?.let { image ->
         EnlargedImageDialog(
-            imagePair = selectedImage!!,
+            imagePair = image, // No !! needed here!
             onDismiss = { selectedImage = null },
+            viewModel = viewModel,
             onSetWallpaper = {
-                viewModel.setWallpaper(selectedImage!!)
+                viewModel.setWallpaper(image) // Use 'image' (the captured non-null value)
                 selectedImage = null
-                onBack() 
+                onBack()
             }
         )
     }

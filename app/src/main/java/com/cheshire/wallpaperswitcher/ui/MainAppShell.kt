@@ -2,6 +2,7 @@ package com.cheshire.wallpaperswitcher.ui
 
 import android.app.WallpaperInfo
 import android.app.WallpaperManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
@@ -47,6 +48,7 @@ fun MainAppShell(viewModel: WallpaperViewModel) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 isEngineEnabled = isWallpaperEngineActive(context)
+                viewModel.updateLockScreenStatus()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -82,7 +84,15 @@ fun MainAppShell(viewModel: WallpaperViewModel) {
             AppTopBar(
                 currentScreen = currentScreen,
                 onShowInformation = { showInformation = true },
-                onChangeFolder = { launcher.launch(null) }
+                onChangeFolder = { launcher.launch(null) },
+                onRestartEngine = {
+                    val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
+                    intent.putExtra(
+                        WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
+                        ComponentName(context, ScrollingWallpaperService::class.java)
+                    )
+                    context.startActivity(intent)
+                }
             )
         },
         bottomBar = {
@@ -98,7 +108,11 @@ fun MainAppShell(viewModel: WallpaperViewModel) {
                 ExtendedFloatingActionButton(
                     onClick = {
                         if (!isEngineEnabled) {
-                            Toast.makeText(context, "Please enable the engine first", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                context,
+                                "Please enable the engine first",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                         viewModel.nextWallpaper()
                     },
@@ -127,7 +141,8 @@ fun MainAppShell(viewModel: WallpaperViewModel) {
 fun AppTopBar(
     currentScreen: Screen,
     onShowInformation: () -> Unit,
-    onChangeFolder: () -> Unit
+    onChangeFolder: () -> Unit,
+    onRestartEngine: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -157,6 +172,14 @@ fun AppTopBar(
                     },
                     leadingIcon = { Icon(Icons.Default.FolderOpen, contentDescription = null) }
                 )
+                DropdownMenuItem(
+                    text = { Text("Restart Engine") },
+                    onClick = {
+                        showMenu = false
+                        onRestartEngine()
+                    },
+                    leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) }
+                )
             }
         }
     )
@@ -177,7 +200,12 @@ fun AppBottomBar(
                 onClick = { onNavigate(Screen.Dashboard) }
             )
             NavigationBarItem(
-                icon = { Icon(Icons.AutoMirrored.Filled.PlaylistPlay, contentDescription = "Queue") },
+                icon = {
+                    Icon(
+                        Icons.AutoMirrored.Filled.PlaylistPlay,
+                        contentDescription = "Queue"
+                    )
+                },
                 label = { Text("Queue") },
                 selected = currentScreen == Screen.Queue,
                 onClick = { onNavigate(Screen.Queue) },
@@ -224,6 +252,7 @@ fun NavigationHost(
                 onSelectFolder = onSelectFolder
             )
         }
+
         Screen.Queue -> {
             ImageGridScreen(
                 images = viewModel.shuffledQueue,
@@ -231,6 +260,7 @@ fun NavigationHost(
                 onBack = { onNavigate(Screen.Dashboard) }
             )
         }
+
         Screen.Favorites -> {
             ImageGridScreen(
                 images = viewModel.favoriteImages,
@@ -238,6 +268,7 @@ fun NavigationHost(
                 onBack = { onNavigate(Screen.Dashboard) }
             )
         }
+
         Screen.History -> {
             ImageGridScreen(
                 images = viewModel.historyImages,
@@ -245,6 +276,7 @@ fun NavigationHost(
                 onBack = { onNavigate(Screen.Dashboard) }
             )
         }
+
         Screen.ToRemove -> {
             ImageGridScreen(
                 images = viewModel.toRemoveImages,
@@ -258,6 +290,6 @@ fun NavigationHost(
 private fun isWallpaperEngineActive(context: Context): Boolean {
     val wm = context.getSystemService(Context.WALLPAPER_SERVICE) as WallpaperManager
     val info: WallpaperInfo? = wm.wallpaperInfo
-    return info != null && info.packageName == context.packageName && 
-           info.serviceName == ScrollingWallpaperService::class.java.name
+    return info != null && info.packageName == context.packageName &&
+            info.serviceName == ScrollingWallpaperService::class.java.name
 }

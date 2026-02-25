@@ -1,5 +1,6 @@
 package com.cheshire.wallpaperswitcher.ui.viewmodel
 
+import android.app.WallpaperManager
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.compose.runtime.derivedStateOf
@@ -9,7 +10,9 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cheshire.wallpaperswitcher.data.WallpaperRepository
+import com.cheshire.wallpaperswitcher.service.ScrollingWallpaperService
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 data class WallpaperMetadata(
     val fileSizeMb: String = "0.0 MB",
@@ -36,6 +39,9 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
     var toRemoveNames by mutableStateOf<Set<String>>(emptySet())
         private set
 
+    var managesLockScreen by mutableStateOf(false)
+        private set
+
     // Map of filename -> Uri for quick lookup
     private var imageMap = emptyMap<String, Uri>()
 
@@ -43,11 +49,11 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
     val favoriteImages by derivedStateOf {
         favoriteNames.mapNotNull { name -> imageMap[name]?.let { it to name } }
     }
-    
+
     val historyImages by derivedStateOf {
         seenImageNames.mapNotNull { name -> imageMap[name]?.let { it to name } }
     }
-    
+
     val toRemoveImages by derivedStateOf {
         toRemoveNames.mapNotNull { name -> imageMap[name]?.let { it to name } }
     }
@@ -69,6 +75,37 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
 
         folderUri?.let { refreshCache() }
         currentWallpaperUri?.let { updateMetadata(it) }
+        updateLockScreenStatus()
+    }
+
+    /**
+     * Updates the status of whether the app manages the lock screen.
+     * Note: FLAG_LOCK returns null if the lock screen is sharing the system wallpaper.
+     */
+    fun updateLockScreenStatus() {
+        val wm = WallpaperManager.getInstance(repository.context)
+        val packageName = repository.context.packageName
+        val serviceName = ScrollingWallpaperService::class.java.name
+
+        // 1. Check if our service is explicitly set as a Live Wallpaper for either screen
+        val systemInfo = wm.getWallpaperInfo(WallpaperManager.FLAG_SYSTEM) ?: wm.wallpaperInfo
+        val lockInfo = wm.getWallpaperInfo(WallpaperManager.FLAG_LOCK)
+
+        val isOurSystem =
+            systemInfo?.let { it.packageName == packageName && it.serviceName == serviceName }
+                ?: false
+        val isOurLock =
+            lockInfo?.let { it.packageName == packageName && it.serviceName == serviceName }
+                ?: false
+
+        // 2. Check if the lock screen is currently "Inheriting" from the system wallpaper.
+        // getWallpaperId(FLAG_LOCK) returns -1 if no specific wallpaper (static or live) is set for the lock screen.
+        val hasSeparateLockWallpaper = wm.getWallpaperId(WallpaperManager.FLAG_LOCK) >= 0
+
+        // We manage the lock screen if:
+        // - It's explicitly set to our Live Wallpaper service.
+        // - OR it's inherited from the system screen AND our service is set on the system screen.
+        managesLockScreen = isOurLock || (isOurSystem && !hasSeparateLockWallpaper)
     }
 
     fun updateFolderUri(uri: Uri) {
@@ -85,19 +122,20 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
             val currentModified = repository.getDirectoryLastModified(uri)
             val loadedCache = repository.loadCache()
 
-            cachedImages = if (currentModified != -1L && currentModified == lastStoredModified && loadedCache.isNotEmpty()) {
-                loadedCache
-            } else {
-                repository.refreshCache(uri)
-            }
-            
+            cachedImages =
+                if (currentModified != -1L && currentModified == lastStoredModified && loadedCache.isNotEmpty()) {
+                    loadedCache
+                } else {
+                    repository.refreshCache(uri)
+                }
+
             // Build the map: filename -> Uri
             imageMap = cachedImages.associate { it.second to it.first }
-            
+
             // Sync the playlist with the new image list and current history
             playlist.updateData(cachedImages, seenImageNames)
             shuffledQueue = playlist.getQueue()
-            
+
             if (currentWallpaperUri == null && cachedImages.isNotEmpty()) {
                 setInitialWallpaper()
             }
@@ -110,7 +148,7 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
         shuffledQueue = playlist.getQueue()
         currentWallpaperUri = pair.first
         currentWallpaperName = pair.second
-        
+
         markAsSeen(pair.second)
         repository.updateCurrentWallpaper(pair.first, pair.second)
         updateMetadata(pair.first)
@@ -121,7 +159,7 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
 
         viewModelScope.launch {
             var pair = playlist.getNext()
-            
+
             if (pair == null) {
                 // All images in the current cycle seen, reset history and start over
                 resetSeen()
@@ -132,7 +170,7 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
 
             currentWallpaperUri = pair.first
             currentWallpaperName = pair.second
-            
+
             markAsSeen(pair.second)
             repository.updateCurrentWallpaper(pair.first, pair.second)
             updateMetadata(pair.first)
@@ -143,36 +181,47 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
         viewModelScope.launch {
             currentWallpaperUri = pair.first
             currentWallpaperName = pair.second
-            
+
             markAsSeen(pair.second)
             repository.updateCurrentWallpaper(pair.first, pair.second)
             updateMetadata(pair.first)
-            
+
             // Remove from queue if it was there
             playlist.removeFromQueue(pair.first)
             shuffledQueue = playlist.getQueue()
         }
     }
 
-    private fun updateMetadata(uri: Uri) {
+    fun setLockScreenOnly(uri: Uri) {
         viewModelScope.launch {
-            val res = repository.getImageResolution(uri)
-            // Get size from content provider
-            var sizeMb = "0.0 MB"
-            try {
-                repository.context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                    val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-                    if (cursor.moveToFirst() && sizeIndex != -1) {
-                        val sizeBytes = cursor.getLong(sizeIndex)
-                        sizeMb = String.format("%.2f MB", sizeBytes.toDouble() / (1024 * 1024))
-                    }
-                }
-            } catch (_: Exception) {}
-            
-            currentMetadata = WallpaperMetadata(sizeMb, res)
+            repository.setLockScreen(uri)
+            updateLockScreenStatus()
         }
     }
-    
+
+    private fun updateMetadata(uri: Uri) {
+        viewModelScope.launch {
+            currentMetadata = fetchMetadata(uri)
+        }
+    }
+
+    suspend fun fetchMetadata(uri: Uri): WallpaperMetadata {
+        val res = repository.getImageResolution(uri)
+        var sizeMb = "0.0 MB"
+        try {
+            repository.context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                if (cursor.moveToFirst() && sizeIndex != -1) {
+                    val sizeBytes = cursor.getLong(sizeIndex)
+                    sizeMb =
+                        String.format(Locale.US, "%.2f MB", sizeBytes.toDouble() / (1024 * 1024))
+                }
+            }
+        } catch (_: Exception) {
+        }
+        return WallpaperMetadata(sizeMb, res)
+    }
+
     private fun markAsSeen(name: String) {
         if (name !in seenImageNames) {
             val newSeen = seenImageNames + name
@@ -211,6 +260,8 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
         shuffledQueue = playlist.getQueue()
     }
 
+    // Helper for UI to get URIs from names (for fav/seen grids)
+    fun getUriForName(name: String): Uri? = imageMap[name]
 }
 
 /**

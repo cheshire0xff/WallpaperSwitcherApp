@@ -45,21 +45,21 @@ fun InformationDialog(
                 Text(appName, style = MaterialTheme.typography.titleLarge)
                 Text("Version $versionName ($gitHash)", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 Text("Total Images: $totalImages")
                 Text("Seen: $seenCount")
                 Text("New: ${totalImages - seenCount}")
                 Text("Favorites: $favoritesCount")
                 Text("To Remove: $toRemoveCount")
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 Text("Folder Path:", style = MaterialTheme.typography.labelLarge)
                 Text(
                     text = folderUri?.let { Uri.decode(it.toString()) } ?: "None",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 Button(
                     onClick = onResetSeen,
                     modifier = Modifier.fillMaxWidth()

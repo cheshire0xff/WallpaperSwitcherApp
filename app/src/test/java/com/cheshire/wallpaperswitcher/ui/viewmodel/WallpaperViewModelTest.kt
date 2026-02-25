@@ -29,7 +29,7 @@ class WallpaperViewModelTest {
         Dispatchers.setMain(testDispatcher)
         context = ApplicationProvider.getApplicationContext()
         repository = WallpaperRepository(context)
-        
+
         // Clear SharedPreferences and files
         context.getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE).edit().clear().commit()
         val baseDir = context.externalCacheDir ?: context.cacheDir
@@ -47,10 +47,10 @@ class WallpaperViewModelTest {
         repository.saveFolderUri(folderUri)
         repository.updateCurrentWallpaper(Uri.parse("content://curr"), "current.jpg")
         repository.saveFavorites(setOf("fav.jpg"))
-        
+
         viewModel = WallpaperViewModel(repository)
 
-        
+
         assertEquals(folderUri, viewModel.folderUri)
         assertEquals("current.jpg", viewModel.currentWallpaperName)
         assertTrue(viewModel.favoriteNames.contains("fav.jpg"))
@@ -61,10 +61,10 @@ class WallpaperViewModelTest {
         viewModel = WallpaperViewModel(repository)
 
         val newUri = Uri.parse("content://new_folder")
-        
+
         viewModel.updateFolderUri(newUri)
 
-        
+
         assertEquals(newUri, repository.getFolderUri())
         assertEquals(newUri, viewModel.folderUri)
     }
@@ -74,12 +74,12 @@ class WallpaperViewModelTest {
         repository.updateCurrentWallpaper(Uri.parse("content://img"), "img.jpg")
         viewModel = WallpaperViewModel(repository)
         advanceUntilIdle()
-        
+
         // Add to favorite
         viewModel.toggleFavorite()
         assertTrue(viewModel.favoriteNames.contains("img.jpg"))
         assertTrue(repository.getFavoriteImages().contains("img.jpg"))
-        
+
         // Remove from favorite
         viewModel.toggleFavorite()
         assertFalse(viewModel.favoriteNames.contains("img.jpg"))
@@ -91,11 +91,11 @@ class WallpaperViewModelTest {
         repository.updateCurrentWallpaper(Uri.parse("content://bad"), "bad_img.jpg")
         viewModel = WallpaperViewModel(repository)
 
-        
+
         viewModel.toggleToRemove()
         assertTrue(viewModel.toRemoveNames.contains("bad_img.jpg"))
         assertTrue(repository.getToRemoveImages().contains("bad_img.jpg"))
-        
+
         viewModel.toggleToRemove()
         assertFalse(viewModel.toRemoveNames.contains("bad_img.jpg"))
         assertFalse(repository.getToRemoveImages().contains("bad_img.jpg"))
@@ -106,9 +106,9 @@ class WallpaperViewModelTest {
         repository.saveSeenImages(setOf("seen.jpg"))
         viewModel = WallpaperViewModel(repository)
 
-        
+
         viewModel.resetSeen()
-        
+
         assertTrue(viewModel.seenImageNames.isEmpty())
         assertTrue(repository.getSeenImages().isEmpty())
     }

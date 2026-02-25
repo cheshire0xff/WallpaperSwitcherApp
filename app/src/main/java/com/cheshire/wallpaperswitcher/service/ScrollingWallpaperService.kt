@@ -17,6 +17,15 @@ import android.view.Choreographer
 import android.view.SurfaceHolder
 import androidx.core.net.toUri
 
+/**
+ * Live Wallpaper Service that handles image rendering and horizontal scrolling.
+ * 
+ * INTERACTION WITH THE APP:
+ * 1. Communication: Uses a BroadcastReceiver to listen for 'UPDATE_WALLPAPER' intents
+ *    sent by the main app when a user selects a new wallpaper.
+ * 2. Persistence: Reads the 'current_wallpaper_uri' from SharedPreferences ('WallpaperPrefs')
+ *    on startup to restore the last used wallpaper after a reboot or service restart.
+ */
 class ScrollingWallpaperService : WallpaperService() {
     override fun onCreateEngine(): Engine {
         Log.v("WallpaperService", "Service: onCreateEngine called")
@@ -25,9 +34,9 @@ class ScrollingWallpaperService : WallpaperService() {
 
     inner class ScrollingEngine : Engine(), Choreographer.FrameCallback {
         private var wallpaperBitmap: Bitmap? = null
-        private var xOffset = 0.5f 
+        private var xOffset = 0.5f
         private val paint = Paint().apply { isFilterBitmap = true }
-        
+
         // Cache calculations
         private val drawMatrix = Matrix()
         private var finalScale = 1f
@@ -35,9 +44,14 @@ class ScrollingWallpaperService : WallpaperService() {
         private var ty = 0f
         private var viewWidth = 0f
         private var viewHeight = 0f
-        
+
         private var isFramePending = false
 
+        /**
+         * BroadcastReceiver for handling "App -> Service" communication.
+         * When the user clicks "Next" or selects a specific image in the app, 
+         * the app broadcasts an intent that this receiver picks up to trigger a live update.
+         */
         private val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 if (intent.action == "com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER") {
@@ -53,15 +67,21 @@ class ScrollingWallpaperService : WallpaperService() {
         override fun onCreate(surfaceHolder: SurfaceHolder?) {
             super.onCreate(surfaceHolder)
             Log.v("WallpaperService", "Engine onCreate (Preview: $isPreview)")
-            
+
             val metrics = resources.displayMetrics
             val wm = getSystemService(WALLPAPER_SERVICE) as WallpaperManager
             // Suggest double width for scrolling
             wm.suggestDesiredDimensions(metrics.widthPixels * 2, metrics.heightPixels)
-            
+
+            // Register the receiver to listen for wallpaper update requests from the app
             val filter = IntentFilter("com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER")
             registerReceiver(receiver, filter, RECEIVER_EXPORTED)
 
+            /**
+             * RESTORE STATE:
+             * On initialization (like after a phone reboot), we read the same preference file 
+             * written by the main app to ensure we are displaying the correct wallpaper immediately.
+             */
             val prefs = getSharedPreferences("WallpaperPrefs", MODE_PRIVATE)
             prefs.getString("current_wallpaper_uri", null)?.let {
                 loadWallpaper(it.toUri())
@@ -81,7 +101,7 @@ class ScrollingWallpaperService : WallpaperService() {
 
         override fun doFrame(frameTimeNanos: Long) {
             isFramePending = false // Reset the gatekeeper
-            
+
             if (isVisible) {
                 draw()
             }
@@ -99,6 +119,7 @@ class ScrollingWallpaperService : WallpaperService() {
         override fun onDestroy() {
             Log.v("WallpaperService", "Engine onDestroy (Preview: $isPreview)")
             super.onDestroy()
+            // Cleanup: unregister receiver to prevent memory leaks
             unregisterReceiver(receiver)
             isFramePending = false
             Choreographer.getInstance().removeFrameCallback(this)
@@ -110,13 +131,19 @@ class ScrollingWallpaperService : WallpaperService() {
             xOffsetStep: Float, yOffsetStep: Float,
             xPixelOffset: Int, yPixelOffset: Int
         ) {
+            // Listen to launcher scroll events
             if (this.xOffset != xOffset) {
                 this.xOffset = xOffset
                 scheduleDraw()
             }
         }
 
-        override fun onSurfaceChanged(holder: SurfaceHolder?, format: Int, width: Int, height: Int) {
+        override fun onSurfaceChanged(
+            holder: SurfaceHolder?,
+            format: Int,
+            width: Int,
+            height: Int
+        ) {
             super.onSurfaceChanged(holder, format, width, height)
             Log.v("WallpaperService", "Surface changed: ${width}x${height}")
             viewWidth = width.toFloat()

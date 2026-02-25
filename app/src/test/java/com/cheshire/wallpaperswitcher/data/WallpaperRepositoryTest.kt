@@ -21,21 +21,22 @@ class WallpaperRepositoryTest {
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
         repository = WallpaperRepository(context)
-        
+
         // Clear files before each test to ensure isolation
         val baseDir = context.externalCacheDir ?: context.cacheDir
         File(baseDir, "seen_images.txt").delete()
         File(baseDir, "favorites.txt").delete()
         File(baseDir, "to_remove.txt").delete()
         File(baseDir, "image_cache.txt").delete()
-        
+
         // Clear SharedPreferences
         context.getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE).edit().clear().commit()
     }
 
     @Test
     fun `save and get folder uri`() {
-        val uri = Uri.parse("content://com.android.externalstorage.documents/tree/primary%3APictures")
+        val uri =
+            Uri.parse("content://com.android.externalstorage.documents/tree/primary%3APictures")
         repository.saveFolderUri(uri)
         assertEquals(uri, repository.getFolderUri())
     }
@@ -84,7 +85,7 @@ class WallpaperRepositoryTest {
         val baseDir = context.externalCacheDir ?: context.cacheDir
         val cacheFile = File(baseDir, "image_cache.txt")
         cacheFile.writeText("content://uri1|image1.jpg\ncontent://uri2|image2.png")
-        
+
         val result = repository.loadCache()
         assertEquals(2, result.size)
         assertEquals("content://uri1", result[0].first.toString())
@@ -92,7 +93,7 @@ class WallpaperRepositoryTest {
         assertEquals("content://uri2", result[1].first.toString())
         assertEquals("image2.png", result[1].second)
     }
-    
+
     @Test
     fun `getSeenImages handles empty file`() {
         val baseDir = context.externalCacheDir ?: context.cacheDir

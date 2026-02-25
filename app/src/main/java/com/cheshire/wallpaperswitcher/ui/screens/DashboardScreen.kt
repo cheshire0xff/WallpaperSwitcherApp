@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.cheshire.wallpaperswitcher.ui.components.CurrentWallpaperCard
+import com.cheshire.wallpaperswitcher.ui.components.EngineEnableCard
 import com.cheshire.wallpaperswitcher.ui.components.EngineStatusSection
 import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
 
@@ -24,39 +25,52 @@ fun DashboardScreen(
     isEngineEnabled: Boolean,
     onSelectFolder: () -> Unit
 ) {
-    val context = LocalContext.current
-
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+            .padding(horizontal = 24.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Engine Status (Active label OR Enable Engine Card) at the top
+        if (isEngineEnabled) {
+            EngineStatusSection(
+                managesLockScreen = viewModel.managesLockScreen
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         if (viewModel.folderUri == null) {
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
                 Button(onClick = onSelectFolder) {
                     Text("Select Wallpaper Folder")
                 }
             }
-        } else {
-            if (isEngineEnabled) {
-                CurrentWallpaperCard(
-                    name = viewModel.currentWallpaperName,
-                    uri = viewModel.currentWallpaperUri,
-                    metadata = viewModel.currentMetadata,
-                    isFavorite = viewModel.currentWallpaperName in viewModel.favoriteNames,
-                    isToRemove = viewModel.currentWallpaperName in viewModel.toRemoveNames,
-                    onToggleFavorite = { viewModel.toggleFavorite() },
-                    onToggleToRemove = { viewModel.toggleToRemove() }
-                )
-            }
-
-            EngineStatusSection(context = context, isEngineEnabled = isEngineEnabled)
-            
-            // Extra space at bottom
-            Spacer(modifier = Modifier.height(32.dp))
+            return
         }
+        if (isEngineEnabled) {
+            CurrentWallpaperCard(
+                name = viewModel.currentWallpaperName,
+                uri = viewModel.currentWallpaperUri,
+                metadata = viewModel.currentMetadata,
+                isFavorite = viewModel.currentWallpaperName in viewModel.favoriteNames,
+                isToRemove = viewModel.currentWallpaperName in viewModel.toRemoveNames,
+                onToggleFavorite = { viewModel.toggleFavorite() },
+                onToggleToRemove = { viewModel.toggleToRemove() }
+            )
+        } else {
+            EngineEnableCard(
+                context = LocalContext.current
+            )
+        }
+
+
+        // Extra space at bottom to prevent FAB overlap
+        Spacer(modifier = Modifier.height(80.dp))
+
     }
 }

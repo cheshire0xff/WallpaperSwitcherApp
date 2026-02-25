@@ -1,5 +1,6 @@
 package com.cheshire.wallpaperswitcher.data
 
+import android.app.WallpaperManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
@@ -117,8 +118,10 @@ class WallpaperRepository(val context: Context) {
                 ),
                 null, null, null
             )?.use { cursor ->
-                val idCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
-                val nameCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                val idCol =
+                    cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                val nameCol =
+                    cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
 
                 while (cursor.moveToNext()) {
                     val name = cursor.getString(nameCol) ?: ""
@@ -169,11 +172,22 @@ class WallpaperRepository(val context: Context) {
             putString("current_wallpaper_uri", uri.toString())
             putString("current_wallpaper_name", name)
         }
-        
+
         val updateIntent = Intent("com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER")
         updateIntent.setPackage(context.packageName)
         updateIntent.putExtra("uri", uri.toString())
         context.sendBroadcast(updateIntent)
+    }
+
+    suspend fun setLockScreen(uri: Uri) = withContext(Dispatchers.IO) {
+        try {
+            val wallpaperManager = WallpaperManager.getInstance(context)
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                wallpaperManager.setStream(inputStream, null, true, WallpaperManager.FLAG_LOCK)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting lock screen: ${e.message}")
+        }
     }
 
     fun saveSeenImages(seenNames: Set<String>) {

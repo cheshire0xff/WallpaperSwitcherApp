@@ -15,7 +15,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -38,8 +37,8 @@ fun CurrentWallpaperCard(
     ElevatedCard(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(0.6f),
-        shape = RoundedCornerShape(28.dp) // extraLarge equivalent
+            .aspectRatio(0.8f),
+        shape = RoundedCornerShape(28.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Layer 1: The Image
@@ -61,7 +60,7 @@ fun CurrentWallpaperCard(
                 // Favorite Badge (Left)
                 if (isFavorite) {
                     Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
                         shape = CircleShape,
                         modifier = Modifier.size(32.dp)
                     ) {
@@ -81,7 +80,7 @@ fun CurrentWallpaperCard(
                 // Removal Badge (Right)
                 if (isToRemove) {
                     Surface(
-                        color = MaterialTheme.colorScheme.errorContainer,
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
                         shape = CircleShape,
                         modifier = Modifier.size(32.dp)
                     ) {
@@ -98,24 +97,23 @@ fun CurrentWallpaperCard(
             }
 
             // Layer 3 & 4: Information Scrim and Buttons (Bottom Overlay)
-            Box(
+            Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)),
-                            startY = 0f
-                        )
-                    )
-                    .padding(16.dp)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Text Layout
-                    Column {
+                // Text Layout with Glass Pill
+                Surface(
+                    color = Color.Black.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                         Text(
                             text = name ?: "Unknown Wallpaper",
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleMedium,
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
@@ -123,7 +121,7 @@ fun CurrentWallpaperCard(
                         )
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.alpha(0.7f)
+                            modifier = Modifier.alpha(0.8f)
                         ) {
                             Text(
                                 text = metadata.fileSizeMb,
@@ -137,53 +135,53 @@ fun CurrentWallpaperCard(
                             )
                         }
                     }
+                }
 
-                    // Split Action Buttons
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                // Split Action Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Favorite Button
+                    FilledTonalIconButton(
+                        onClick = onToggleFavorite,
+                        colors = if (isFavorite) {
+                            IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        } else {
+                            IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = Color.Black.copy(alpha = 0.4f),
+                                contentColor = Color.White
+                            )
+                        }
                     ) {
-                        // Favorite Button
-                        FilledTonalIconButton(
-                            onClick = onToggleFavorite,
-                            colors = if (isFavorite) {
-                                IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            } else {
-                                IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor = Color.White.copy(alpha = 0.2f),
-                                    contentColor = Color.White
-                                )
-                            }
-                        ) {
-                            Icon(
-                                if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
-                                contentDescription = "Favorite"
-                            )
-                        }
+                        Icon(
+                            if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = "Favorite"
+                        )
+                    }
 
-                        // Remove Button
-                        FilledTonalIconButton(
-                            onClick = onToggleToRemove,
-                            colors = if (isToRemove) {
-                                IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            } else {
-                                IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor = Color.White.copy(alpha = 0.2f),
-                                    contentColor = Color.White
-                                )
-                            }
-                        ) {
-                            Icon(
-                                if (isToRemove) Icons.Default.DeleteSweep else Icons.Outlined.DeleteOutline,
-                                contentDescription = "To Remove"
+                    // Remove Button
+                    FilledTonalIconButton(
+                        onClick = onToggleToRemove,
+                        colors = if (isToRemove) {
+                            IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        } else {
+                            IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = Color.Black.copy(alpha = 0.4f),
+                                contentColor = Color.White
                             )
                         }
+                    ) {
+                        Icon(
+                            if (isToRemove) Icons.Default.DeleteSweep else Icons.Outlined.DeleteOutline,
+                            contentDescription = "To Remove"
+                        )
                     }
                 }
             }
