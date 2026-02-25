@@ -2,6 +2,7 @@ package com.cheshire.wallpaperswitcher.ui.components
 
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,12 +33,14 @@ fun CurrentWallpaperCard(
     isFavorite: Boolean,
     isToRemove: Boolean,
     onToggleFavorite: () -> Unit,
-    onToggleToRemove: () -> Unit
+    onToggleToRemove: () -> Unit,
+    onClick: () -> Unit
 ) {
     ElevatedCard(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(0.8f),
+            .aspectRatio(0.8f)
+            .clickable { onClick() },
         shape = RoundedCornerShape(28.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {

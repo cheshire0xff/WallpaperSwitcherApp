@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import com.cheshire.wallpaperswitcher.ui.components.CurrentWallpaperCard
 import com.cheshire.wallpaperswitcher.ui.components.EngineEnableCard
 import com.cheshire.wallpaperswitcher.ui.components.EngineStatusSection
+import com.cheshire.wallpaperswitcher.ui.components.EnlargedImageDialog
 import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
 
 
@@ -25,6 +26,24 @@ fun DashboardScreen(
     isEngineEnabled: Boolean,
     onSelectFolder: () -> Unit
 ) {
+    var showEnlarged by remember { mutableStateOf(false) }
+
+    if (showEnlarged) {
+        val uri = viewModel.currentWallpaperUri
+        val name = viewModel.currentWallpaperName
+        if (uri != null && name != null) {
+            EnlargedImageDialog(
+                imagePair = uri to name,
+                viewModel = viewModel,
+                onDismiss = { showEnlarged = false },
+                onSetWallpaper = { 
+                    viewModel.setWallpaper(uri to name)
+                    showEnlarged = false
+                }
+            )
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -60,7 +79,8 @@ fun DashboardScreen(
                 isFavorite = viewModel.currentWallpaperName in viewModel.favoriteNames,
                 isToRemove = viewModel.currentWallpaperName in viewModel.toRemoveNames,
                 onToggleFavorite = { viewModel.toggleFavorite() },
-                onToggleToRemove = { viewModel.toggleToRemove() }
+                onToggleToRemove = { viewModel.toggleToRemove() },
+                onClick = { showEnlarged = true }
             )
         } else {
             EngineEnableCard(
