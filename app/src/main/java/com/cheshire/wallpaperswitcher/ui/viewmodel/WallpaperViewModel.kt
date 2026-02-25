@@ -231,23 +231,23 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
         }
     }
 
-    fun toggleFavorite() {
-        val name = currentWallpaperName ?: return
-        val newFavorites = if (name in favoriteNames) {
-            favoriteNames - name
+    fun toggleFavorite(name: String? = null) {
+        val targetName = name ?: currentWallpaperName ?: return
+        val newFavorites = if (targetName in favoriteNames) {
+            favoriteNames - targetName
         } else {
-            favoriteNames + name
+            favoriteNames + targetName
         }
         favoriteNames = newFavorites
         repository.saveFavorites(newFavorites)
     }
 
-    fun toggleToRemove() {
-        val name = currentWallpaperName ?: return
-        val newToRemove = if (name in toRemoveNames) {
-            toRemoveNames - name
+    fun toggleToRemove(name: String? = null) {
+        val targetName = name ?: currentWallpaperName ?: return
+        val newToRemove = if (targetName in toRemoveNames) {
+            toRemoveNames - targetName
         } else {
-            toRemoveNames + name
+            toRemoveNames + targetName
         }
         toRemoveNames = newToRemove
         repository.saveToRemoveImages(newToRemove)
@@ -259,9 +259,6 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
         playlist.updateSeenHistory(emptySet())
         shuffledQueue = playlist.getQueue()
     }
-
-    // Helper for UI to get URIs from names (for fav/seen grids)
-    fun getUriForName(name: String): Uri? = imageMap[name]
 }
 
 /**

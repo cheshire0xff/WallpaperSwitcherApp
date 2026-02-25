@@ -6,9 +6,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Wallpaper
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,6 +43,10 @@ fun EnlargedImageDialog(
 ) {
     val context = LocalContext.current
     var metadata by remember { mutableStateOf<WallpaperMetadata?>(null) }
+
+    val name = imagePair.second
+    val isFavorite = name in viewModel.favoriteNames
+    val isToRemove = name in viewModel.toRemoveNames
 
     LaunchedEffect(imagePair.first) {
         metadata = viewModel.fetchMetadata(imagePair.first)
@@ -107,22 +114,29 @@ fun EnlargedImageDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 24.dp, bottom = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(
-                                16.dp,
-                                Alignment.CenterHorizontally
-                            )
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            // Home Button - Styled as an Outlined action
+                            // Favorite Button
                             WallpaperActionButton(
-                                icon = Icons.Default.Wallpaper, // Wallpaper icon is more descriptive for "Home Screen"
-                                label = "Set Home",
+                                icon = if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
+                                label = "Fav",
+                                onClick = {
+                                    viewModel.toggleFavorite(name)
+                                },
+                                tint = if (isFavorite) MaterialTheme.colorScheme.primary else Color.White
+                            )
+
+                            // Home Button
+                            WallpaperActionButton(
+                                icon = Icons.Default.Wallpaper,
+                                label = "Home",
                                 onClick = { onSetWallpaper() }
                             )
 
-                            // Lock Button - Styled with a bit more visual weight or a different color
+                            // Lock Button
                             WallpaperActionButton(
                                 icon = Icons.Default.Lock,
-                                label = "Set Lock",
+                                label = "Lock",
                                 onClick = {
                                     viewModel.setLockScreenOnly(imagePair.first)
                                     Toast.makeText(
@@ -131,6 +145,14 @@ fun EnlargedImageDialog(
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 }
+                            )
+
+                            // Remove Button
+                            WallpaperActionButton(
+                                icon = if (isToRemove) Icons.Default.DeleteSweep else Icons.Outlined.DeleteOutline,
+                                label = "Trash",
+                                onClick = { viewModel.toggleToRemove(name) },
+                                tint = if (isToRemove) MaterialTheme.colorScheme.error else Color.White
                             )
                         }
 
@@ -141,22 +163,12 @@ fun EnlargedImageDialog(
     }
 }
 
-// Helper Composable
-@Composable
-fun IconButtonColumn(icon: ImageVector, label: String, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        FilledTonalIconButton(onClick = onClick) {
-            Icon(icon, contentDescription = label)
-        }
-        Text(label, style = MaterialTheme.typography.labelSmall, color = Color.White)
-    }
-}
-
 @Composable
 fun WallpaperActionButton(
     icon: ImageVector,
     label: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    tint: Color = Color.White
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -168,14 +180,14 @@ fun WallpaperActionButton(
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = MaterialTheme.colorScheme.onSurface,
+            tint = tint,
             modifier = Modifier.size(28.dp)
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = Color.White.copy(alpha = 0.8f)
         )
     }
 }
