@@ -1,5 +1,6 @@
 package com.cheshire.wallpaperswitcher.ui.screens
 
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
@@ -20,17 +21,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.request.CachePolicy
+import coil.request.ImageRequest
+import coil.size.Precision
 import com.cheshire.wallpaperswitcher.ui.components.EnlargedImageDialog
 import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
 import kotlinx.coroutines.launch
 
 /**
  * Screen displaying a lazy-loaded grid of images.
+ * Heavily optimized for huge datasets (10k+ images).
  */
 @Composable
 fun ImageGridScreen(
@@ -51,31 +58,19 @@ fun ImageGridScreen(
                 style = MaterialTheme.typography.bodyLarge
             )
         } else {
-            LazyVerticalGrid(
-                state = gridState,
-                columns = GridCells.Adaptive(minSize = 100.dp),
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                items(images) { imagePair ->
-                    AsyncImage(
-                        model = imagePair.first,
-                        contentDescription = imagePair.second,
-                        modifier = Modifier
-                            .aspectRatio(1f)
-                            .clickable { selectedImage = imagePair },
-                        contentScale = ContentScale.Crop
-                    )
-                }
-            }
+            // Optimization: Grid content is isolated to prevent recomposing 
+            // the whole grid when the 'selectedImage' dialog state changes.
+            WallpaperGrid(
+                images = images,
+                gridState = gridState,
+                onImageClick = { selectedImage = it }
+            )
 
             VerticalGridScrollbar(
                 gridState = gridState,
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .padding(top = 8.dp, bottom = 48.dp, end = 12.dp) // More bottom padding and moved from edge
+                    .padding(top = 8.dp, bottom = 48.dp, end = 12.dp)
             )
         }
     }
@@ -91,6 +86,52 @@ fun ImageGridScreen(
                 onBack()
             }
         )
+    }
+}
+
+@Composable
+private fun WallpaperGrid(
+    images: List<Pair<Uri, String>>,
+    gridState: LazyGridState,
+    onImageClick: (Pair<Uri, String>) -> Unit
+) {
+    val context = LocalContext.current
+    
+    LazyVerticalGrid(
+        state = gridState,
+        columns = GridCells.Adaptive(minSize = 120.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        items(
+            items = images,
+            key = { it.second },
+            contentType = { "wallpaper_item" }
+        ) { imagePair ->
+            val request = remember(imagePair.first) {
+                ImageRequest.Builder(context)
+                    .data(imagePair.first)
+                    .size(300, 500)
+                    .precision(Precision.INEXACT)
+                    .allowHardware(true)
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    // Short crossfade is snappier for fast scrolling
+                    .crossfade(150)
+                    .build()
+            }
+
+            AsyncImage(
+                model = request,
+                contentDescription = imagePair.second,
+                modifier = Modifier
+                    .aspectRatio(0.6f)
+                    .clickable { onImageClick(imagePair) },
+                contentScale = ContentScale.Crop
+            )
+        }
     }
 }
 
@@ -112,66 +153,67 @@ private fun VerticalGridScrollbar(
         label = "scrollbarAlpha"
     )
 
-    // Keep it composed if it's being dragged even if grid thinks it's not scrolling
     if (scrollbarAlpha <= 0f && !isDragging) return
 
-    val layoutInfo = gridState.layoutInfo
-    val totalItems = layoutInfo.totalItemsCount
-    if (totalItems == 0) return
-
-    val visibleItems = layoutInfo.visibleItemsInfo
-    if (visibleItems.isEmpty()) return
-
-    val firstItem = gridState.firstVisibleItemIndex
-    val totalVisibleItems = visibleItems.size
+    val thumbSize = 40.dp
     
-    if (totalVisibleItems >= totalItems) return
-
     BoxWithConstraints(
         modifier = modifier
             .fillMaxHeight()
-            .width(48.dp) // Large touch target width
-            .alpha(scrollbarAlpha)
+            .width(48.dp)
+            .graphicsLayer { alpha = scrollbarAlpha }
     ) {
         val trackHeightPx = constraints.maxHeight.toFloat()
-        val thumbSize = 40.dp
         val thumbSizePx = with(LocalDensity.current) { thumbSize.toPx() }
-        
-        // Calculate the max index we can scroll to (first visible item)
-        val maxScrollIndex = (totalItems - totalVisibleItems).coerceAtLeast(1)
-        val offsetFraction = (firstItem.toFloat() / maxScrollIndex).coerceIn(0f, 1f)
-        
         val availableTrack = trackHeightPx - thumbSizePx
-        var thumbOffsetPx by remember { mutableStateOf(offsetFraction * availableTrack) }
-        
-        // Sync with grid scroll when NOT dragging
-        LaunchedEffect(firstItem, trackHeightPx) {
-            if (!isDragging) {
-                thumbOffsetPx = offsetFraction * availableTrack
+
+        val scrollPosition by remember {
+            derivedStateOf {
+                val layoutInfo = gridState.layoutInfo
+                val totalItems = layoutInfo.totalItemsCount
+                val visibleItems = layoutInfo.visibleItemsInfo
+                
+                if (totalItems == 0 || visibleItems.isEmpty()) 0f
+                else {
+                    val firstItem = gridState.firstVisibleItemIndex
+                    val totalVisibleItems = visibleItems.size
+                    val maxScrollIndex = (totalItems - totalVisibleItems).coerceAtLeast(1)
+                    (firstItem.toFloat() / maxScrollIndex).coerceIn(0f, 1f)
+                }
             }
         }
 
+        var dragOffsetPx by remember { mutableFloatStateOf(0f) }
+
         Box(
             modifier = Modifier
-                .offset(y = with(LocalDensity.current) { thumbOffsetPx.toDp() })
                 .size(thumbSize)
                 .align(Alignment.TopCenter)
+                .graphicsLayer {
+                    translationY = if (isDragging) dragOffsetPx else scrollPosition * availableTrack
+                }
                 .clip(CircleShape)
                 .background(Color.Black.copy(alpha = 0.8f))
-                .pointerInput(totalItems, trackHeightPx) {
+                .pointerInput(trackHeightPx) {
                     detectDragGestures(
-                        onDragStart = { isDragging = true },
+                        onDragStart = { 
+                            isDragging = true
+                            dragOffsetPx = scrollPosition * availableTrack
+                        },
                         onDragEnd = { isDragging = false },
                         onDragCancel = { isDragging = false },
                         onDrag = { change, dragAmount ->
                             change.consume()
-                            thumbOffsetPx = (thumbOffsetPx + dragAmount.y).coerceIn(0f, availableTrack)
+                            dragOffsetPx = (dragOffsetPx + dragAmount.y).coerceIn(0f, availableTrack)
                             
-                            val newFraction = if (availableTrack > 0) thumbOffsetPx / availableTrack else 0f
-                            val targetItem = (newFraction * maxScrollIndex).toInt()
-                            
+                            val newFraction = if (availableTrack > 0) dragOffsetPx / availableTrack else 0f
+                            val currentTotal = gridState.layoutInfo.totalItemsCount
+                            val currentVisible = gridState.layoutInfo.visibleItemsInfo.size
+                            val maxScrollIdx = (currentTotal - currentVisible).coerceAtLeast(1)
+                            val targetItem = (newFraction * maxScrollIdx).toInt()
+
                             coroutineScope.launch {
-                                gridState.scrollToItem(targetItem.coerceIn(0, totalItems - 1))
+                                gridState.scrollToItem(targetItem.coerceIn(0, currentTotal - 1))
                             }
                         }
                     )
