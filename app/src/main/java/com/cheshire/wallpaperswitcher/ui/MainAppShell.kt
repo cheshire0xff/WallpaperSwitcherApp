@@ -20,6 +20,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.cheshire.wallpaperswitcher.service.ScrollingWallpaperService
+import com.cheshire.wallpaperswitcher.ui.components.AppBottomBar
+import com.cheshire.wallpaperswitcher.ui.components.AppTopBar
 import com.cheshire.wallpaperswitcher.ui.components.InformationDialog
 import com.cheshire.wallpaperswitcher.ui.screens.DashboardScreen
 import com.cheshire.wallpaperswitcher.ui.screens.ImageGridScreen
@@ -139,105 +141,7 @@ fun MainAppShell(viewModel: WallpaperViewModel) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AppTopBar(
-    currentScreen: Screen,
-    onShowInformation: () -> Unit,
-    onChangeFolder: () -> Unit,
-    onRestartEngine: () -> Unit
-) {
-    var showMenu by remember { mutableStateOf(false) }
 
-    TopAppBar(
-        title = { Text(currentScreen.title) },
-        actions = {
-            IconButton(onClick = { showMenu = true }) {
-                Icon(Icons.Default.MoreVert, contentDescription = "More options")
-            }
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false }
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Information") },
-                    onClick = {
-                        showMenu = false
-                        onShowInformation()
-                    },
-                    leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
-                )
-                DropdownMenuItem(
-                    text = { Text("Change Folder") },
-                    onClick = {
-                        showMenu = false
-                        onChangeFolder()
-                    },
-                    leadingIcon = { Icon(Icons.Default.FolderOpen, contentDescription = null) }
-                )
-                DropdownMenuItem(
-                    text = { Text("Restart Engine") },
-                    onClick = {
-                        showMenu = false
-                        onRestartEngine()
-                    },
-                    leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) }
-                )
-            }
-        }
-    )
-}
-
-@Composable
-fun AppBottomBar(
-    currentScreen: Screen,
-    viewModel: WallpaperViewModel,
-    onNavigate: (Screen) -> Unit
-) {
-    if (viewModel.folderUri != null) {
-        NavigationBar {
-            NavigationBarItem(
-                icon = { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") },
-                label = { Text("Dash") },
-                selected = currentScreen == Screen.Dashboard,
-                onClick = { onNavigate(Screen.Dashboard) }
-            )
-            NavigationBarItem(
-                icon = {
-                    Icon(
-                        Icons.AutoMirrored.Filled.PlaylistPlay,
-                        contentDescription = "Queue"
-                    )
-                },
-                label = { Text("Queue") },
-                selected = currentScreen == Screen.Queue,
-                onClick = { onNavigate(Screen.Queue) },
-                enabled = viewModel.cachedImages.isNotEmpty()
-            )
-            NavigationBarItem(
-                icon = { Icon(Icons.Default.Favorite, contentDescription = "Favorites") },
-                label = { Text("Favs") },
-                selected = currentScreen == Screen.Favorites,
-                onClick = { onNavigate(Screen.Favorites) },
-                enabled = viewModel.favoriteNames.isNotEmpty()
-            )
-            NavigationBarItem(
-                icon = { Icon(Icons.Default.History, contentDescription = "History") },
-                label = { Text("History") },
-                selected = currentScreen == Screen.History,
-                onClick = { onNavigate(Screen.History) },
-                enabled = viewModel.seenImageNames.isNotEmpty()
-            )
-            NavigationBarItem(
-                icon = { Icon(Icons.Default.DeleteSweep, contentDescription = "To Remove") },
-                label = { Text("ToRemove") },
-                selected = currentScreen == Screen.ToRemove,
-                onClick = { onNavigate(Screen.ToRemove) },
-                enabled = viewModel.toRemoveNames.isNotEmpty()
-            )
-        }
-    }
-}
 
 @Composable
 fun NavigationHost(

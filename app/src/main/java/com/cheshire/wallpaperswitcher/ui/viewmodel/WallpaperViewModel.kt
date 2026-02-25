@@ -51,7 +51,7 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
     }
 
     val historyImages by derivedStateOf {
-        seenImageNames.mapNotNull { name -> imageMap[name]?.let { it to name } }
+        seenImageNames.mapNotNull { name -> imageMap[name]?.let { it to name } }.reversed()
     }
 
     val toRemoveImages by derivedStateOf {
