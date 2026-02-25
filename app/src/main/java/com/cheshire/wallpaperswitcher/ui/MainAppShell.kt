@@ -142,7 +142,6 @@ fun MainAppShell(viewModel: WallpaperViewModel) {
 }
 
 
-
 @Composable
 fun NavigationHost(
     currentScreen: Screen,
