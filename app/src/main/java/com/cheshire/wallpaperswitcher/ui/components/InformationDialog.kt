@@ -24,9 +24,12 @@ import androidx.compose.ui.res.stringResource
 @Composable
 fun InformationDialog(
     totalImages: Int,
-    seenCount: Int,
-    favoritesCount: Int,
-    toRemoveCount: Int,
+    availableSeenCount: Int,
+    totalSeenCount: Int,
+    availableFavoritesCount: Int,
+    totalFavoritesCount: Int,
+    availableToRemoveCount: Int,
+    totalToRemoveCount: Int,
     folderUri: Uri?,
     onResetSeen: () -> Unit,
     onDismiss: () -> Unit
@@ -46,11 +49,11 @@ fun InformationDialog(
                 Text("Version $versionName ($gitHash)", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Text("Total Images: $totalImages")
-                Text("Seen: $seenCount")
-                Text("New: ${totalImages - seenCount}")
-                Text("Favorites: $favoritesCount")
-                Text("To Remove: $toRemoveCount")
+                Text("Total Images in Folder: $totalImages")
+                Text("Seen: $availableSeenCount available ($totalSeenCount total)")
+                Text("New (Unseen): ${totalImages - availableSeenCount}")
+                Text("Favorites: $availableFavoritesCount available ($totalFavoritesCount total)")
+                Text("To Remove: $availableToRemoveCount available ($totalToRemoveCount total)")
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text("Folder Path:", style = MaterialTheme.typography.labelLarge)

@@ -70,9 +70,12 @@ fun MainAppShell(viewModel: WallpaperViewModel) {
     if (showInformation) {
         InformationDialog(
             totalImages = viewModel.cachedImages.size,
-            seenCount = viewModel.seenImageNames.size,
-            favoritesCount = viewModel.favoriteNames.size,
-            toRemoveCount = viewModel.toRemoveNames.size,
+            availableSeenCount = viewModel.historyImages.size,
+            totalSeenCount = viewModel.seenImageNames.size,
+            availableFavoritesCount = viewModel.favoriteImages.size,
+            totalFavoritesCount = viewModel.favoriteNames.size,
+            availableToRemoveCount = viewModel.toRemoveImages.size,
+            totalToRemoveCount = viewModel.toRemoveNames.size,
             folderUri = viewModel.folderUri,
             onResetSeen = { viewModel.resetSeen() },
             onDismiss = { showInformation = false }

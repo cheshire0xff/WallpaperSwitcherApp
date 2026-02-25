@@ -36,7 +36,7 @@ fun DashboardScreen(
                 imagePair = uri to name,
                 viewModel = viewModel,
                 onDismiss = { showEnlarged = false },
-                onSetWallpaper = { 
+                onSetWallpaper = {
                     viewModel.setWallpaper(uri to name)
                     showEnlarged = false
                 }
