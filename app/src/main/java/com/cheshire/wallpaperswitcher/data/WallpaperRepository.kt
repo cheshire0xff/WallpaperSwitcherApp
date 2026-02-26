@@ -6,12 +6,15 @@ import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.provider.OpenableColumns
 import android.util.Log
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import com.cheshire.wallpaperswitcher.service.ScrollingWallpaperService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.Locale
 
 private const val TAG = "WallpaperRepository"
 private const val CACHE_FILE_NAME = "image_cache.txt"
@@ -156,15 +159,58 @@ class WallpaperRepository(val context: Context) {
     }
 
     suspend fun getImageResolution(uri: Uri): String = withContext(Dispatchers.IO) {
+        var size = "Unknown"
         try {
             context.contentResolver.openInputStream(uri)?.use { input ->
                 val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 BitmapFactory.decodeStream(input, null, options)
-                "${options.outWidth}x${options.outHeight}"
-            } ?: "Unknown"
+                size = "${options.outWidth}x${options.outHeight}"
+            }
         } catch (_: Exception) {
-            "Unknown"
         }
+        size
+    }
+
+    suspend fun getImageSize(uri: Uri): String = withContext(Dispatchers.IO) {
+        var sizeMb = "0.0 MB"
+        try {
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                if (cursor.moveToFirst() && sizeIndex != -1) {
+                    val sizeBytes = cursor.getLong(sizeIndex)
+                    sizeMb =
+                        String.format(Locale.US, "%.2f MB", sizeBytes.toDouble() / (1024 * 1024))
+                }
+            }
+        } catch (_: Exception) {
+        }
+        sizeMb
+    }
+
+    fun isManagingLockScreen(): Boolean {
+        val wm = WallpaperManager.getInstance(context)
+        val packageName = context.packageName
+        val serviceName = ScrollingWallpaperService::class.java.name
+
+        // 1. Check if our service is explicitly set as a Live Wallpaper for either screen
+        val systemInfo = wm.getWallpaperInfo(WallpaperManager.FLAG_SYSTEM) ?: wm.wallpaperInfo
+        val lockInfo = wm.getWallpaperInfo(WallpaperManager.FLAG_LOCK)
+
+        val isOurSystem =
+            systemInfo?.let { it.packageName == packageName && it.serviceName == serviceName }
+                ?: false
+        val isOurLock =
+            lockInfo?.let { it.packageName == packageName && it.serviceName == serviceName }
+                ?: false
+
+        // 2. Check if the lock screen is currently "Inheriting" from the system wallpaper.
+        // getWallpaperId(FLAG_LOCK) returns -1 if no specific wallpaper (static or live) is set for the lock screen.
+        val hasSeparateLockWallpaper = wm.getWallpaperId(WallpaperManager.FLAG_LOCK) >= 0
+
+        // We manage the lock screen if:
+        // - It's explicitly set to our Live Wallpaper service.
+        // - OR it's inherited from the system screen AND our service is set on the system screen.
+        return isOurLock || (isOurSystem && !hasSeparateLockWallpaper)
     }
 
     fun updateCurrentWallpaper(uri: Uri, name: String) {
