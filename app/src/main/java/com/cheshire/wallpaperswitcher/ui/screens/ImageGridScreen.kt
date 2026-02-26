@@ -2,6 +2,7 @@ package com.cheshire.wallpaperswitcher.ui.screens
 
 import android.graphics.Bitmap
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
@@ -264,14 +265,27 @@ private fun VerticalGridScrollbar(
             derivedStateOf {
                 val layoutInfo = gridState.layoutInfo
                 val totalItems = layoutInfo.totalItemsCount
+                // This may vary during the scroll.
                 val visibleItems = layoutInfo.visibleItemsInfo
-
-                if (totalItems == 0 || visibleItems.isEmpty()) 0f
+                val lastItem = visibleItems.last()
+                // Nothing to scroll to if there is only one row.
+                if (lastItem.row == 0) 0f
                 else {
-                    val firstItem = gridState.firstVisibleItemIndex
-                    val totalVisibleItems = visibleItems.size
-                    val maxScrollIndex = (totalItems - totalVisibleItems).coerceAtLeast(1)
-                    (firstItem.toFloat() / maxScrollIndex).coerceIn(0f, 1f)
+                    val firstItem = visibleItems.first()
+                    val firstItemRow = firstItem.row
+                    val firstItemInLastRowIndex = lastItem.index - lastItem.column
+                    val slotsInRow = firstItemInLastRowIndex / lastItem.row
+                    val maxRows = totalItems / slotsInRow
+                    // True height with padding.
+                    val height = firstItem.size.height + layoutInfo.afterContentPadding
+                    // This is nice it takes padding into account.
+                    val offset = firstItem.offset.y
+                    val calculatedPos = height * firstItemRow - offset
+                    val viewPortEndOffset = layoutInfo.viewportEndOffset
+                    val lastPos = maxRows * height - viewPortEndOffset
+                    val ratio = (calculatedPos.toFloat() / lastPos.toFloat()).coerceIn(0f, 1f)
+                    Log.d("VerticalGridScrollbar", "pos: $calculatedPos/$lastPos r: $ratio")
+                    ratio
                 }
             }
         }
