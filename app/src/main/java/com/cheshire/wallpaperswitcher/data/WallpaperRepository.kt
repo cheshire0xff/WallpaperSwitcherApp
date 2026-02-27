@@ -26,10 +26,12 @@ private const val PREFS_NAME = "WallpaperPrefs"
 class WallpaperRepository(val context: Context) {
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    private val baseDir: File
-        get() = context.externalCacheDir ?: context.cacheDir
+    val baseDir: File
+        get() = context.getExternalFilesDir("wallpapers") ?: context.externalCacheDir ?: context.cacheDir
 
     fun getFolderUri(): Uri? = prefs.getString("folder_uri", null)?.toUri()
+
+
 
     fun saveFolderUri(uri: Uri) {
         prefs.edit { putString("folder_uri", uri.toString()) }

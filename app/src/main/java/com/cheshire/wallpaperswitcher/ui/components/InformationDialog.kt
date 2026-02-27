@@ -30,6 +30,7 @@ fun InformationDialog(
     totalFavoritesCount: Int,
     availableToRemoveCount: Int,
     totalToRemoveCount: Int,
+    appDataPath: String,
     folderUri: Uri?,
     onResetSeen: () -> Unit,
     onDismiss: () -> Unit
@@ -59,6 +60,12 @@ fun InformationDialog(
                 Text("Folder Path:", style = MaterialTheme.typography.labelLarge)
                 Text(
                     text = folderUri?.let { Uri.decode(it.toString()) } ?: "None",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("App Data Path:", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    text = appDataPath,
                     style = MaterialTheme.typography.bodySmall
                 )
                 Spacer(modifier = Modifier.height(16.dp))

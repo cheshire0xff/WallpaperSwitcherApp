@@ -75,6 +75,7 @@ fun MainAppShell(viewModel: WallpaperViewModel) {
             totalFavoritesCount = viewModel.favoriteNames.size,
             availableToRemoveCount = viewModel.toRemoveImages.size,
             totalToRemoveCount = viewModel.toRemoveNames.size,
+            appDataPath = viewModel.appDataDir,
             folderUri = viewModel.folderUri,
             onResetSeen = { viewModel.resetSeen() },
             onDismiss = { showInformation = false }

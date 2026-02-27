@@ -18,6 +18,8 @@ data class WallpaperMetadata(
 )
 
 class WallpaperViewModel(private val repository: WallpaperRepository) : ViewModel() {
+    val appDataDir: String = repository.baseDir.absolutePath
+
     var folderUri by mutableStateOf<Uri?>(null)
         private set
     var cachedImages by mutableStateOf<List<Pair<Uri, String>>>(emptyList())
