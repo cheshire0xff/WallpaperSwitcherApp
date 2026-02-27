@@ -16,6 +16,7 @@ import android.util.Log
 import android.view.Choreographer
 import android.view.SurfaceHolder
 import androidx.core.net.toUri
+import com.cheshire.wallpaperswitcher.util.DLog
 
 /**
  * Live Wallpaper Service that handles image rendering and horizontal scrolling.
@@ -28,7 +29,7 @@ import androidx.core.net.toUri
  */
 class ScrollingWallpaperService : WallpaperService() {
     override fun onCreateEngine(): Engine {
-        Log.v("WallpaperService", "Service: onCreateEngine called")
+        DLog.v("WallpaperService", "Service: onCreateEngine called")
         return ScrollingEngine()
     }
 
@@ -56,7 +57,7 @@ class ScrollingWallpaperService : WallpaperService() {
             override fun onReceive(context: Context, intent: Intent) {
                 if (intent.action == "com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER") {
                     val uriString = intent.getStringExtra("uri")
-                    Log.v("WallpaperService", "Update received (Preview: $isPreview): $uriString")
+                    DLog.i("WallpaperService", "Update received (Preview: $isPreview): $uriString")
                     if (uriString != null) {
                         loadWallpaper(uriString.toUri())
                     }
@@ -66,7 +67,7 @@ class ScrollingWallpaperService : WallpaperService() {
 
         override fun onCreate(surfaceHolder: SurfaceHolder?) {
             super.onCreate(surfaceHolder)
-            Log.v("WallpaperService", "Engine onCreate (Preview: $isPreview)")
+            DLog.v("WallpaperService", "Engine onCreate (Preview: $isPreview)")
 
             val metrics = resources.displayMetrics
             val wm = getSystemService(WALLPAPER_SERVICE) as WallpaperManager
@@ -90,7 +91,7 @@ class ScrollingWallpaperService : WallpaperService() {
 
         override fun onVisibilityChanged(visible: Boolean) {
             super.onVisibilityChanged(visible)
-            Log.v("WallpaperService", "Visibility changed to $visible (Preview: $isPreview)")
+            DLog.v("WallpaperService", "Visibility changed to $visible (Preview: $isPreview)")
             if (visible) {
                 scheduleDraw()
             } else {
@@ -117,7 +118,7 @@ class ScrollingWallpaperService : WallpaperService() {
         }
 
         override fun onDestroy() {
-            Log.v("WallpaperService", "Engine onDestroy (Preview: $isPreview)")
+            DLog.v("WallpaperService", "Engine onDestroy (Preview: $isPreview)")
             super.onDestroy()
             // Cleanup: unregister receiver to prevent memory leaks
             unregisterReceiver(receiver)
@@ -145,7 +146,7 @@ class ScrollingWallpaperService : WallpaperService() {
             height: Int
         ) {
             super.onSurfaceChanged(holder, format, width, height)
-            Log.v("WallpaperService", "Surface changed: ${width}x${height}")
+            DLog.v("WallpaperService", "Surface changed: ${width}x${height}")
             viewWidth = width.toFloat()
             viewHeight = height.toFloat()
             recalculateDimensions()

@@ -10,7 +10,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.*
@@ -40,8 +39,8 @@ import coil.request.ImageRequest
 import coil.size.Precision
 import com.cheshire.wallpaperswitcher.ui.components.EnlargedImageDialog
 import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
+import com.cheshire.wallpaperswitcher.util.DLog
 import kotlinx.coroutines.launch
-import kotlin.math.ceil
 import kotlin.math.floor
 
 /**
@@ -272,7 +271,7 @@ private fun VerticalGridScrollbar(
                 val layoutDetails = calculateLayoutDetails(layoutInfo)
                     ?: return@derivedStateOf 0f
                 val currentPosition = layoutDetails.getCurrentPosition()
-                Log.d(
+                DLog.d(
                     "VerticalGridScrollbar",
                     "pos: ${currentPosition.px}/${layoutDetails.maxScrollPositionPx} "
                             + "ratio: ${currentPosition.ratio} fvi: ${layoutDetails.firstItem.index} "
@@ -315,7 +314,7 @@ private fun VerticalGridScrollbar(
                                 if (availableTrack > 0) dragOffsetPx / availableTrack
                                 else 0f
                             val gridPosition = layoutDetails.calcPositionInGrid(newFraction)
-                            Log.d(
+                            DLog.d(
                                 "VerticalGridScrollbar",
                                 "dragOffsetPx: $dragOffsetPx/$availableTrack "
                                         + "fraction: $newFraction "
