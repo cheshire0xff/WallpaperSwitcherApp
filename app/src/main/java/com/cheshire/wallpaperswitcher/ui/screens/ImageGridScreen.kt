@@ -10,6 +10,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.*
@@ -40,6 +41,8 @@ import coil.size.Precision
 import com.cheshire.wallpaperswitcher.ui.components.EnlargedImageDialog
 import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
 import kotlinx.coroutines.launch
+import kotlin.math.ceil
+import kotlin.math.floor
 
 /**
  * Screen displaying a lazy-loaded grid of images.
@@ -229,6 +232,8 @@ private fun WallpaperGrid(
     }
 }
 
+//private fun
+
 @Composable
 private fun VerticalGridScrollbar(
     gridState: LazyGridState,
@@ -264,29 +269,16 @@ private fun VerticalGridScrollbar(
         val scrollPosition by remember {
             derivedStateOf {
                 val layoutInfo = gridState.layoutInfo
-                val totalItems = layoutInfo.totalItemsCount
-                // This may vary during the scroll.
-                val visibleItems = layoutInfo.visibleItemsInfo
-                val lastItem = visibleItems.last()
-                // Nothing to scroll to if there is only one row.
-                if (lastItem.row == 0) 0f
-                else {
-                    val firstItem = visibleItems.first()
-                    val firstItemRow = firstItem.row
-                    val firstItemInLastRowIndex = lastItem.index - lastItem.column
-                    val slotsInRow = firstItemInLastRowIndex / lastItem.row
-                    val maxRows = totalItems / slotsInRow
-                    // True height with padding.
-                    val height = firstItem.size.height + layoutInfo.afterContentPadding
-                    // This is nice it takes padding into account.
-                    val offset = firstItem.offset.y
-                    val calculatedPos = height * firstItemRow - offset
-                    val viewPortEndOffset = layoutInfo.viewportEndOffset
-                    val lastPos = maxRows * height - viewPortEndOffset
-                    val ratio = (calculatedPos.toFloat() / lastPos.toFloat()).coerceIn(0f, 1f)
-                    Log.d("VerticalGridScrollbar", "pos: $calculatedPos/$lastPos r: $ratio")
-                    ratio
-                }
+                val layoutDetails = calculateLayoutDetails(layoutInfo)
+                    ?: return@derivedStateOf 0f
+                val currentPosition = layoutDetails.getCurrentPosition()
+                Log.d(
+                    "VerticalGridScrollbar",
+                    "pos: ${currentPosition.px}/${layoutDetails.maxScrollPositionPx} "
+                            + "ratio: ${currentPosition.ratio} fvi: ${layoutDetails.firstItem.index} "
+                            + " fvo: ${layoutDetails.firstItem.offset.y}"
+                )
+                currentPosition.ratio
             }
         }
 
@@ -314,15 +306,29 @@ private fun VerticalGridScrollbar(
                             dragOffsetPx =
                                 (dragOffsetPx + dragAmount.y).coerceIn(0f, availableTrack)
 
+                            val layoutInfo = gridState.layoutInfo
+                            val layoutDetails = calculateLayoutDetails(layoutInfo)
+                                ?: return@detectDragGestures
+
+
                             val newFraction =
-                                if (availableTrack > 0) dragOffsetPx / availableTrack else 0f
-                            val currentTotal = gridState.layoutInfo.totalItemsCount
-                            val currentVisible = gridState.layoutInfo.visibleItemsInfo.size
-                            val maxScrollIdx = (currentTotal - currentVisible).coerceAtLeast(1)
-                            val targetItem = (newFraction * maxScrollIdx).toInt()
+                                if (availableTrack > 0) dragOffsetPx / availableTrack
+                                else 0f
+                            val gridPosition = layoutDetails.calcPositionInGrid(newFraction)
+                            Log.d(
+                                "VerticalGridScrollbar",
+                                "dragOffsetPx: $dragOffsetPx/$availableTrack "
+                                        + "fraction: $newFraction "
+                                        + "targetScrollPx: ${gridPosition.gridPositionPx}/${layoutDetails.maxScrollPositionPx} "
+                                        + "targetItem: ${gridPosition.itemIndex}/${layoutDetails.totalItems} "
+                                        + "targetOffset: ${gridPosition.itemIndex}"
+                            )
 
                             coroutineScope.launch {
-                                gridState.scrollToItem(targetItem.coerceIn(0, currentTotal - 1))
+                                gridState.scrollToItem(
+                                    gridPosition.itemIndex,
+                                    gridPosition.itemOffset
+                                )
                             }
                         }
                     )
@@ -337,4 +343,109 @@ private fun VerticalGridScrollbar(
             )
         }
     }
+}
+
+private data class ScrollPosition(
+    val ratio: Float,
+    val px: Int,
+)
+
+private data class GridPosition(
+    val itemIndex: Int,
+    val itemOffset: Int,
+    val gridPositionPx: Int
+)
+
+
+private data class LayoutDetails(
+    val columns: Int,
+    val rows: Int,
+    val itemHeightPx: Int,
+    val maxScrollPositionPx: Int,
+    val totalItems: Int,
+    val firstItem: LazyGridItemInfo,
+    val lastItem: LazyGridItemInfo,
+) {
+
+    fun getCurrentPosition(): ScrollPosition {
+        val calculatedPos = getCurrentScrollPx()
+        val ratio = (calculatedPos.toFloat() / maxScrollPositionPx.toFloat()).coerceIn(0f, 1f)
+        return ScrollPosition(ratio = ratio, px = calculatedPos)
+    }
+
+    fun calcPositionInGrid(ratio: Float): GridPosition {
+        val targetScrollPx = ratio * maxScrollPositionPx
+
+        val targetRowFloat = targetScrollPx / itemHeightPx
+        val targetRow = floor(targetRowFloat).toInt()
+        val targetItemFloat = targetRowFloat * columns
+        val targetItem =
+            targetItemFloat.toInt().coerceIn(0, totalItems)
+        val targetOffsetRatio = targetRowFloat - targetRow
+        val targetOffsetFloat =
+            targetOffsetRatio * itemHeightPx
+        val targetOffset = targetOffsetFloat.toInt()
+
+        return GridPosition(
+            itemIndex = targetItem,
+            itemOffset = targetOffset,
+            gridPositionPx = targetScrollPx.toInt()
+        )
+    }
+
+
+    fun getCurrentScrollPx(): Int {
+        val offset = firstItem.offset.y
+        val calculatedPos = itemHeightPx * firstItem.row - offset
+        return calculatedPos
+    }
+}
+
+// To properly work requires at least two rows ot items.
+// Returns null otherwise.
+private fun calculateLayoutDetails(
+    layoutInfo: LazyGridLayoutInfo
+): LayoutDetails? {
+    val visibleItems = layoutInfo.visibleItemsInfo
+    // No items case.
+    if (visibleItems.isEmpty()) {
+        return null
+    }
+    val lastItem = visibleItems.last()
+    if (lastItem.row == 0) {
+        return null
+    }
+    val firstItem = visibleItems.first()
+    // For example with 5 items like:
+    // 0 1 2
+    // 3 4
+    // It will be 4 - 1 = 3
+    // So we correctly get 3.
+    val firstItemInLastRowIndex = lastItem.index - lastItem.column
+    // For example with 5 items like:
+    // 0 1 2 row 0
+    // 3 4 5 row 1
+    // 6     row 2
+    // It will be 6 / 2 == 3
+    val columns = firstItemInLastRowIndex / lastItem.row
+    if (columns == 0) {
+        // Just a sanity check.
+        return null
+    }
+    val totalItems = layoutInfo.totalItemsCount
+    val maxRows = totalItems / columns
+    // True height with padding.
+    val itemHeight = firstItem.size.height + layoutInfo.afterContentPadding
+    val viewPortEndOffset = layoutInfo.viewportEndOffset
+    // We can only scroll to grid size subtracted by what we can see.
+    val maxScrollPositionPx = maxRows * itemHeight - viewPortEndOffset
+    return LayoutDetails(
+        columns = columns,
+        rows = maxRows,
+        itemHeightPx = itemHeight,
+        maxScrollPositionPx = maxScrollPositionPx,
+        totalItems = totalItems,
+        firstItem = firstItem,
+        lastItem = lastItem,
+    )
 }
