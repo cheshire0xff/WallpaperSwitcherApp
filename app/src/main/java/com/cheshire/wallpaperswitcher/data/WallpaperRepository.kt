@@ -140,9 +140,11 @@ class WallpaperRepository @Inject constructor(
                                 line.startsWith("# dir=") -> {
                                     folderUri = line.substring(6).toUri()
                                 }
+
                                 line.startsWith("# lastModified=") -> {
                                     lastModified = line.substring(15).toLongOrNull()
                                 }
+
                                 line.isNotBlank() && !line.startsWith("#") -> {
                                     val parts = line.split("|", limit = 2)
                                     if (parts.size == 2) {
@@ -199,7 +201,11 @@ class WallpaperRepository @Inject constructor(
         newList
     }
 
-    private suspend fun saveCacheToFile(folderUri: Uri, lastModified: Long?, list: List<Pair<Uri, String>>) =
+    private suspend fun saveCacheToFile(
+        folderUri: Uri,
+        lastModified: Long?,
+        list: List<Pair<Uri, String>>
+    ) =
         withContext(ioDispatcher) {
             mutexFor(CACHE_FILE_NAME).withLock {
                 try {

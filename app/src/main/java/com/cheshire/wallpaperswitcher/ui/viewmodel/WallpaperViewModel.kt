@@ -48,8 +48,10 @@ class WallpaperViewModel @Inject constructor(
     var managesLockScreen by mutableStateOf(false)
         private set
 
-    // Map of filename -> Uri for quick lookup
-    private var imageMap = emptyMap<String, Uri>()
+    // Map of filename -> Uri for quick lookup, derived from cachedImages
+    private val imageMap by derivedStateOf {
+        cachedImages.associate { it.second to it.first }
+    }
 
     // Derived states for library screens to avoid re-mapping on every recomposition
     val favoriteImages by derivedStateOf {
@@ -120,9 +122,6 @@ class WallpaperViewModel @Inject constructor(
                 } else {
                     repository.refreshCache(uri)
                 }
-
-            // Build the map: filename -> Uri
-            imageMap = cachedImages.associate { it.second to it.first }
 
             // Sync the playlist with the new image list and current history
             playlist.updateData(cachedImages, seenImageNames)
