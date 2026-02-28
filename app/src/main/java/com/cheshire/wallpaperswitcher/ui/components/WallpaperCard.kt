@@ -130,9 +130,8 @@ fun CurrentWallpaperCard(
         ) {
             Text(
                 text = name ?: "Unknown Wallpaper",
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Row(
@@ -141,11 +140,11 @@ fun CurrentWallpaperCard(
             ) {
                 Text(
                     text = metadata.fileSizeMb,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.labelSmall,
                 )
                 Text(
                     text = metadata.dimensions,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.labelSmall,
                 )
             }
         }
