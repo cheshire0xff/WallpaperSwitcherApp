@@ -19,34 +19,34 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cheshire.wallpaperswitcher.service.ScrollingWallpaperService
 
-
 /**
  * Prompts the user to enable the Live Wallpaper engine if it's currently disabled.
  */
 @Composable
 fun EngineEnableCard(context: Context) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text("Engine Disabled", style = MaterialTheme.typography.titleMedium)
             Text(
                 "Scrolling won't work until you set this as your Live Wallpaper.",
                 style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(vertical = 8.dp)
+                modifier = Modifier.padding(vertical = 8.dp),
             )
             Button(onClick = {
                 val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
                 intent.putExtra(
                     WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
-                    ComponentName(context, ScrollingWallpaperService::class.java)
+                    ComponentName(context, ScrollingWallpaperService::class.java),
                 )
                 context.startActivity(intent)
             }) {

@@ -18,7 +18,7 @@ import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
 fun AppBottomBar(
     currentScreen: Screen,
     viewModel: WallpaperViewModel,
-    onNavigate: (Screen) -> Unit
+    onNavigate: (Screen) -> Unit,
 ) {
     if (viewModel.folderUri != null) {
         NavigationBar {
@@ -26,40 +26,40 @@ fun AppBottomBar(
                 icon = { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") },
                 label = { Text("Dash") },
                 selected = currentScreen == Screen.Dashboard,
-                onClick = { onNavigate(Screen.Dashboard) }
+                onClick = { onNavigate(Screen.Dashboard) },
             )
             NavigationBarItem(
                 icon = {
                     Icon(
                         Icons.AutoMirrored.Filled.PlaylistPlay,
-                        contentDescription = "Queue"
+                        contentDescription = "Queue",
                     )
                 },
                 label = { Text("Queue") },
                 selected = currentScreen == Screen.Queue,
                 onClick = { onNavigate(Screen.Queue) },
-                enabled = viewModel.cachedImages.isNotEmpty()
+                enabled = viewModel.cachedImages.isNotEmpty(),
             )
             NavigationBarItem(
                 icon = { Icon(Icons.Default.Favorite, contentDescription = "Favorites") },
                 label = { Text("Favs") },
                 selected = currentScreen == Screen.Favorites,
                 onClick = { onNavigate(Screen.Favorites) },
-                enabled = viewModel.favoriteNames.isNotEmpty()
+                enabled = viewModel.favoriteNames.isNotEmpty(),
             )
             NavigationBarItem(
                 icon = { Icon(Icons.Default.History, contentDescription = "History") },
                 label = { Text("History") },
                 selected = currentScreen == Screen.History,
                 onClick = { onNavigate(Screen.History) },
-                enabled = viewModel.seenImageNames.isNotEmpty()
+                enabled = viewModel.seenImageNames.isNotEmpty(),
             )
             NavigationBarItem(
                 icon = { Icon(Icons.Default.DeleteSweep, contentDescription = "To Remove") },
                 label = { Text("ToRemove") },
                 selected = currentScreen == Screen.ToRemove,
                 onClick = { onNavigate(Screen.ToRemove) },
-                enabled = viewModel.toRemoveNames.isNotEmpty()
+                enabled = viewModel.toRemoveNames.isNotEmpty(),
             )
         }
     }

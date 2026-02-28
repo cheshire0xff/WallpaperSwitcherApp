@@ -2,7 +2,6 @@ package com.cheshire.wallpaperswitcher.ui.screens
 
 import android.graphics.Bitmap
 import android.net.Uri
-import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
@@ -10,9 +9,26 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridItemInfo
+import androidx.compose.foundation.lazy.grid.LazyGridLayoutInfo
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,8 +36,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.UnfoldMore
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SearchBar
+import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,7 +82,7 @@ import kotlin.math.floor
 fun ImageGridScreen(
     images: List<Pair<Uri, String>>,
     viewModel: WallpaperViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     var selectedImage by remember { mutableStateOf<Pair<Uri, String>?>(null) }
     val gridState = rememberLazyGridState()
@@ -61,10 +91,14 @@ fun ImageGridScreen(
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
 
-    val filteredImages = remember(images, searchQuery) {
-        if (searchQuery.isBlank()) images
-        else images.filter { it.second.contains(searchQuery, ignoreCase = true) }
-    }
+    val filteredImages =
+        remember(images, searchQuery) {
+            if (searchQuery.isBlank()) {
+                images
+            } else {
+                images.filter { it.second.contains(searchQuery, ignoreCase = true) }
+            }
+        }
 
     // Handle back button: collapse search first if active
     BackHandler(onBack = {
@@ -77,10 +111,11 @@ fun ImageGridScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         SearchBar(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = if (isSearchActive) 0.dp else 16.dp)
-                .padding(bottom = if (isSearchActive) 0.dp else 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = if (isSearchActive) 0.dp else 16.dp)
+                    .padding(bottom = if (isSearchActive) 0.dp else 8.dp),
             inputField = {
                 SearchBarDefaults.InputField(
                     query = searchQuery,
@@ -96,17 +131,17 @@ fun ImageGridScreen(
                                 Icon(Icons.Default.Close, contentDescription = null)
                             }
                         }
-                    }
+                    },
                 )
             },
             expanded = isSearchActive,
-            onExpandedChange = { isSearchActive = it }
+            onExpandedChange = { isSearchActive = it },
         ) {
             // Live results in the search bar drop-down
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(filteredImages.take(20)) { imagePair ->
                     ListItem(
@@ -114,27 +149,31 @@ fun ImageGridScreen(
                             Text(
                                 imagePair.second,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
                             )
                         },
                         leadingContent = {
                             AsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current)
-                                    .data(imagePair.first)
-                                    .size(100, 100)
-                                    .precision(Precision.INEXACT)
-                                    .build(),
+                                model =
+                                    ImageRequest
+                                        .Builder(LocalContext.current)
+                                        .data(imagePair.first)
+                                        .size(100, 100)
+                                        .precision(Precision.INEXACT)
+                                        .build(),
                                 contentDescription = null,
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(RoundedCornerShape(8.dp)),
-                                contentScale = ContentScale.Crop
+                                modifier =
+                                    Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(8.dp)),
+                                contentScale = ContentScale.Crop,
                             )
                         },
-                        modifier = Modifier.clickable {
-                            selectedImage = imagePair
-                            isSearchActive = false
-                        }
+                        modifier =
+                            Modifier.clickable {
+                                selectedImage = imagePair
+                                isSearchActive = false
+                            },
                     )
                 }
             }
@@ -146,23 +185,24 @@ fun ImageGridScreen(
                     Text(
                         "No matching wallpapers",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             } else {
-                // Optimization: Grid content is isolated to prevent recomposing 
+                // Optimization: Grid content is isolated to prevent recomposing
                 // the whole grid when the 'selectedImage' dialog state changes.
                 WallpaperGrid(
                     images = filteredImages,
                     gridState = gridState,
-                    onImageClick = { selectedImage = it }
+                    onImageClick = { selectedImage = it },
                 )
 
                 VerticalGridScrollbar(
                     gridState = gridState,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(top = 8.dp, bottom = 48.dp, end = 12.dp)
+                    modifier =
+                        Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(top = 8.dp, bottom = 48.dp, end = 12.dp),
                 )
             }
         }
@@ -177,7 +217,7 @@ fun ImageGridScreen(
                 viewModel.setWallpaper(image)
                 selectedImage = null
                 onBack()
-            }
+            },
         )
     }
 }
@@ -186,7 +226,7 @@ fun ImageGridScreen(
 private fun WallpaperGrid(
     images: List<Pair<Uri, String>>,
     gridState: LazyGridState,
-    onImageClick: (Pair<Uri, String>) -> Unit
+    onImageClick: (Pair<Uri, String>) -> Unit,
 ) {
     val context = LocalContext.current
 
@@ -196,59 +236,61 @@ private fun WallpaperGrid(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         items(
             items = images,
             key = { it.second },
-            contentType = { "wallpaper_item" }
+            contentType = { "wallpaper_item" },
         ) { imagePair ->
-            val request = remember(imagePair.first) {
-                ImageRequest.Builder(context)
-                    .data(imagePair.first)
-                    .size(300, 500)
-                    .precision(Precision.INEXACT)
-                    // Optimization: Use RGB_565 for thumbnails. 
-                    // This uses 50% less memory than ARGB_8888 and is perfect for wallpapers.
-                    .bitmapConfig(Bitmap.Config.RGB_565)
-                    .allowHardware(true)
-                    .memoryCachePolicy(CachePolicy.ENABLED)
-                    .diskCachePolicy(CachePolicy.ENABLED)
-                    // Short crossfade is snappier for fast scrolling
-                    .crossfade(150)
-                    .build()
-            }
+            val request =
+                remember(imagePair.first) {
+                    ImageRequest
+                        .Builder(context)
+                        .data(imagePair.first)
+                        .size(300, 500)
+                        .precision(Precision.INEXACT)
+                        // Optimization: Use RGB_565 for thumbnails.
+                        // This uses 50% less memory than ARGB_8888 and is perfect for wallpapers.
+                        .bitmapConfig(Bitmap.Config.RGB_565)
+                        .allowHardware(true)
+                        .memoryCachePolicy(CachePolicy.ENABLED)
+                        .diskCachePolicy(CachePolicy.ENABLED)
+                        // Short crossfade is snappier for fast scrolling
+                        .crossfade(150)
+                        .build()
+                }
 
             AsyncImage(
                 model = request,
                 contentDescription = imagePair.second,
-                modifier = Modifier
-                    .aspectRatio(0.6f)
-                    .clickable { onImageClick(imagePair) },
-                contentScale = ContentScale.Crop
+                modifier =
+                    Modifier
+                        .aspectRatio(0.6f)
+                        .clickable { onImageClick(imagePair) },
+                contentScale = ContentScale.Crop,
             )
         }
     }
 }
 
-//private fun
-
 @Composable
 private fun VerticalGridScrollbar(
     gridState: LazyGridState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val coroutineScope = rememberCoroutineScope()
     var isDragging by remember { mutableStateOf(false) }
 
     val scrollbarAlpha by animateFloatAsState(
         targetValue = if (gridState.isScrollInProgress || isDragging) 1f else 0f,
-        animationSpec = if (gridState.isScrollInProgress || isDragging) {
-            snap()
-        } else {
-            tween(durationMillis = 500)
-        },
-        label = "scrollbarAlpha"
+        animationSpec =
+            if (gridState.isScrollInProgress || isDragging) {
+                snap()
+            } else {
+                tween(durationMillis = 500)
+            },
+        label = "scrollbarAlpha",
     )
 
     if (scrollbarAlpha <= 0f && !isDragging) return
@@ -256,10 +298,11 @@ private fun VerticalGridScrollbar(
     val thumbSize = 40.dp
 
     BoxWithConstraints(
-        modifier = modifier
-            .fillMaxHeight()
-            .width(48.dp)
-            .graphicsLayer { alpha = scrollbarAlpha }
+        modifier =
+            modifier
+                .fillMaxHeight()
+                .width(48.dp)
+                .graphicsLayer { alpha = scrollbarAlpha },
     ) {
         val trackHeightPx = constraints.maxHeight.toFloat()
         val thumbSizePx = with(LocalDensity.current) { thumbSize.toPx() }
@@ -268,14 +311,15 @@ private fun VerticalGridScrollbar(
         val scrollPosition by remember {
             derivedStateOf {
                 val layoutInfo = gridState.layoutInfo
-                val layoutDetails = calculateLayoutDetails(layoutInfo)
-                    ?: return@derivedStateOf 0f
+                val layoutDetails =
+                    calculateLayoutDetails(layoutInfo)
+                        ?: return@derivedStateOf 0f
                 val currentPosition = layoutDetails.getCurrentPosition()
                 DLog.d(
                     "VerticalGridScrollbar",
-                    "pos: ${currentPosition.px}/${layoutDetails.maxScrollPositionPx} "
-                            + "ratio: ${currentPosition.ratio} fvi: ${layoutDetails.firstItem.index} "
-                            + " fvo: ${layoutDetails.firstItem.offset.y}"
+                    "pos: ${currentPosition.px}/${layoutDetails.maxScrollPositionPx} " +
+                        "ratio: ${currentPosition.ratio} fvi: ${layoutDetails.firstItem.index} " +
+                        " fvo: ${layoutDetails.firstItem.offset.y}",
                 )
                 currentPosition.ratio
             }
@@ -284,61 +328,64 @@ private fun VerticalGridScrollbar(
         var dragOffsetPx by remember { mutableFloatStateOf(0f) }
 
         Box(
-            modifier = Modifier
-                .size(thumbSize)
-                .align(Alignment.TopCenter)
-                .graphicsLayer {
-                    translationY = if (isDragging) dragOffsetPx else scrollPosition * availableTrack
-                }
-                .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.8f))
-                .pointerInput(trackHeightPx) {
-                    detectDragGestures(
-                        onDragStart = {
-                            isDragging = true
-                            dragOffsetPx = scrollPosition * availableTrack
-                        },
-                        onDragEnd = { isDragging = false },
-                        onDragCancel = { isDragging = false },
-                        onDrag = { change, dragAmount ->
-                            change.consume()
-                            dragOffsetPx =
-                                (dragOffsetPx + dragAmount.y).coerceIn(0f, availableTrack)
+            modifier =
+                Modifier
+                    .size(thumbSize)
+                    .align(Alignment.TopCenter)
+                    .graphicsLayer {
+                        translationY = if (isDragging) dragOffsetPx else scrollPosition * availableTrack
+                    }.clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.8f))
+                    .pointerInput(trackHeightPx) {
+                        detectDragGestures(
+                            onDragStart = {
+                                isDragging = true
+                                dragOffsetPx = scrollPosition * availableTrack
+                            },
+                            onDragEnd = { isDragging = false },
+                            onDragCancel = { isDragging = false },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                dragOffsetPx =
+                                    (dragOffsetPx + dragAmount.y).coerceIn(0f, availableTrack)
 
-                            val layoutInfo = gridState.layoutInfo
-                            val layoutDetails = calculateLayoutDetails(layoutInfo)
-                                ?: return@detectDragGestures
+                                val layoutInfo = gridState.layoutInfo
+                                val layoutDetails =
+                                    calculateLayoutDetails(layoutInfo)
+                                        ?: return@detectDragGestures
 
-
-                            val newFraction =
-                                if (availableTrack > 0) dragOffsetPx / availableTrack
-                                else 0f
-                            val gridPosition = layoutDetails.calcPositionInGrid(newFraction)
-                            DLog.d(
-                                "VerticalGridScrollbar",
-                                "dragOffsetPx: $dragOffsetPx/$availableTrack "
-                                        + "fraction: $newFraction "
-                                        + "targetScrollPx: ${gridPosition.gridPositionPx}/${layoutDetails.maxScrollPositionPx} "
-                                        + "targetItem: ${gridPosition.itemIndex}/${layoutDetails.totalItems} "
-                                        + "targetOffset: ${gridPosition.itemIndex}"
-                            )
-
-                            coroutineScope.launch {
-                                gridState.scrollToItem(
-                                    gridPosition.itemIndex,
-                                    gridPosition.itemOffset
+                                val newFraction =
+                                    if (availableTrack > 0) {
+                                        dragOffsetPx / availableTrack
+                                    } else {
+                                        0f
+                                    }
+                                val gridPosition = layoutDetails.calcPositionInGrid(newFraction)
+                                DLog.d(
+                                    "VerticalGridScrollbar",
+                                    "dragOffsetPx: $dragOffsetPx/$availableTrack " +
+                                        "fraction: $newFraction " +
+                                        "targetScrollPx: ${gridPosition.gridPositionPx}/${layoutDetails.maxScrollPositionPx} " +
+                                        "targetItem: ${gridPosition.itemIndex}/${layoutDetails.totalItems} " +
+                                        "targetOffset: ${gridPosition.itemIndex}",
                                 )
-                            }
-                        }
-                    )
-                },
-            contentAlignment = Alignment.Center
+
+                                coroutineScope.launch {
+                                    gridState.scrollToItem(
+                                        gridPosition.itemIndex,
+                                        gridPosition.itemOffset,
+                                    )
+                                }
+                            },
+                        )
+                    },
+            contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Default.UnfoldMore,
                 contentDescription = null,
                 tint = Color.White,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(24.dp),
             )
         }
     }
@@ -352,9 +399,8 @@ private data class ScrollPosition(
 private data class GridPosition(
     val itemIndex: Int,
     val itemOffset: Int,
-    val gridPositionPx: Int
+    val gridPositionPx: Int,
 )
-
 
 private data class LayoutDetails(
     val columns: Int,
@@ -365,7 +411,6 @@ private data class LayoutDetails(
     val firstItem: LazyGridItemInfo,
     val lastItem: LazyGridItemInfo,
 ) {
-
     fun getCurrentPosition(): ScrollPosition {
         val calculatedPos = getCurrentScrollPx()
         val ratio = (calculatedPos.toFloat() / maxScrollPositionPx.toFloat()).coerceIn(0f, 1f)
@@ -388,10 +433,9 @@ private data class LayoutDetails(
         return GridPosition(
             itemIndex = targetItem,
             itemOffset = targetOffset,
-            gridPositionPx = targetScrollPx.toInt()
+            gridPositionPx = targetScrollPx.toInt(),
         )
     }
-
 
     fun getCurrentScrollPx(): Int {
         val offset = firstItem.offset.y
@@ -402,9 +446,7 @@ private data class LayoutDetails(
 
 // To properly work requires at least two rows ot items.
 // Returns null otherwise.
-private fun calculateLayoutDetails(
-    layoutInfo: LazyGridLayoutInfo
-): LayoutDetails? {
+private fun calculateLayoutDetails(layoutInfo: LazyGridLayoutInfo): LayoutDetails? {
     val visibleItems = layoutInfo.visibleItemsInfo
     // No items case.
     if (visibleItems.isEmpty()) {

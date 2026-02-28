@@ -1,0 +1,5 @@
+root = true
+
+[*.{kt,kts}]
+# Ignore function naming rule for @Composable functions
+ktlint_function_naming_ignore_when_annotated_with = Composable

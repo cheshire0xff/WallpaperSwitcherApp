@@ -25,7 +25,7 @@ fun AppTopBar(
     currentScreen: Screen,
     onShowInformation: () -> Unit,
     onChangeFolder: () -> Unit,
-    onRestartEngine: () -> Unit
+    onRestartEngine: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -37,7 +37,7 @@ fun AppTopBar(
             }
             DropdownMenu(
                 expanded = showMenu,
-                onDismissRequest = { showMenu = false }
+                onDismissRequest = { showMenu = false },
             ) {
                 DropdownMenuItem(
                     text = { Text("Information") },
@@ -45,7 +45,7 @@ fun AppTopBar(
                         showMenu = false
                         onShowInformation()
                     },
-                    leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+                    leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
                 )
                 DropdownMenuItem(
                     text = { Text("Change Folder") },
@@ -53,7 +53,7 @@ fun AppTopBar(
                         showMenu = false
                         onChangeFolder()
                     },
-                    leadingIcon = { Icon(Icons.Default.FolderOpen, contentDescription = null) }
+                    leadingIcon = { Icon(Icons.Default.FolderOpen, contentDescription = null) },
                 )
                 DropdownMenuItem(
                     text = { Text("Restart Engine") },
@@ -61,9 +61,9 @@ fun AppTopBar(
                         showMenu = false
                         onRestartEngine()
                     },
-                    leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) }
+                    leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) },
                 )
             }
-        }
+        },
     )
 }

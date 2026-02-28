@@ -1,10 +1,20 @@
 package com.cheshire.wallpaperswitcher.ui.screens
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -15,7 +25,6 @@ import com.cheshire.wallpaperswitcher.ui.components.EngineStatusSection
 import com.cheshire.wallpaperswitcher.ui.components.EnlargedImageDialog
 import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
 
-
 /**
  * Main dashboard screen content.
  */
@@ -24,7 +33,7 @@ fun DashboardScreen(
     modifier: Modifier = Modifier,
     viewModel: WallpaperViewModel,
     isEngineEnabled: Boolean,
-    onSelectFolder: () -> Unit
+    onSelectFolder: () -> Unit,
 ) {
     var showEnlarged by remember { mutableStateOf(false) }
 
@@ -39,22 +48,23 @@ fun DashboardScreen(
                 onSetWallpaper = {
                     viewModel.setWallpaper(uri to name)
                     showEnlarged = false
-                }
+                },
             )
         }
     }
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier =
+            modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         // Engine Status (Active label OR Enable Engine Card) at the top
         if (isEngineEnabled) {
             EngineStatusSection(
-                managesLockScreen = viewModel.managesLockScreen
+                managesLockScreen = viewModel.managesLockScreen,
             )
         }
 
@@ -63,7 +73,7 @@ fun DashboardScreen(
         if (viewModel.folderUri == null) {
             Box(
                 modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Button(onClick = onSelectFolder) {
                     Text("Select Wallpaper Folder")
@@ -80,17 +90,15 @@ fun DashboardScreen(
                 isToRemove = viewModel.currentWallpaperName in viewModel.toRemoveNames,
                 onToggleFavorite = { viewModel.toggleFavorite() },
                 onToggleToRemove = { viewModel.toggleToRemove() },
-                onClick = { showEnlarged = true }
+                onClick = { showEnlarged = true },
             )
         } else {
             EngineEnableCard(
-                context = LocalContext.current
+                context = LocalContext.current,
             )
         }
 
-
         // Extra space at bottom to prevent FAB overlap
         Spacer(modifier = Modifier.height(80.dp))
-
     }
 }

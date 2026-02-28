@@ -19,12 +19,11 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
-
     @Provides
     @Singleton
-    fun provideDataStore(@ApplicationContext context: Context): DataStore<Preferences> {
-        return context.dataStore
-    }
+    fun provideDataStore(
+        @ApplicationContext context: Context,
+    ): DataStore<Preferences> = context.dataStore
 
     @Provides
     fun provideIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
@@ -34,8 +33,6 @@ object AppModule {
     fun provideWallpaperRepository(
         @ApplicationContext context: Context,
         dataStore: DataStore<Preferences>,
-        ioDispatcher: CoroutineDispatcher
-    ): WallpaperRepository {
-        return WallpaperRepository(context, dataStore, ioDispatcher)
-    }
+        ioDispatcher: CoroutineDispatcher,
+    ): WallpaperRepository = WallpaperRepository(context, dataStore, ioDispatcher)
 }

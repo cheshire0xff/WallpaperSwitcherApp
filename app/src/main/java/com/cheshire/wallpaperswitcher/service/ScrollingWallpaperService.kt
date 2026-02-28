@@ -56,8 +56,9 @@ class ScrollingWallpaperService : WallpaperService() {
      * The Engine class responsible for the actual rendering logic and event handling
      * for the live wallpaper.
      */
-    inner class ScrollingEngine : Engine(), Choreographer.FrameCallback {
-
+    inner class ScrollingEngine :
+        Engine(),
+        Choreographer.FrameCallback {
         private var xOffset = 0.5f
         private val renderer = ScrollingWallpaperRenderer()
         private var isFramePending = false
@@ -65,17 +66,21 @@ class ScrollingWallpaperService : WallpaperService() {
         /**
          * Listens for "UPDATE_WALLPAPER" broadcasts to refresh the current wallpaper image.
          */
-        private val receiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                if (intent.action == "com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER") {
-                    val uriString = intent.getStringExtra("uri")
-                    DLog.i("WallpaperService", "Update received (Preview: $isPreview): $uriString")
-                    if (uriString != null) {
-                        loadWallpaper(uriString.toUri())
+        private val receiver =
+            object : BroadcastReceiver() {
+                override fun onReceive(
+                    context: Context,
+                    intent: Intent,
+                ) {
+                    if (intent.action == "com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER") {
+                        val uriString = intent.getStringExtra("uri")
+                        DLog.i("WallpaperService", "Update received (Preview: $isPreview): $uriString")
+                        if (uriString != null) {
+                            loadWallpaper(uriString.toUri())
+                        }
                     }
                 }
             }
-        }
 
         /**
          * Initializes the engine, sets up the broadcast receiver, and loads the initial wallpaper.
@@ -147,9 +152,12 @@ class ScrollingWallpaperService : WallpaperService() {
          * Updates the horizontal offset when the user scrolls through launcher pages.
          */
         override fun onOffsetsChanged(
-            xOffset: Float, yOffset: Float,
-            xOffsetStep: Float, yOffsetStep: Float,
-            xPixelOffset: Int, yPixelOffset: Int
+            xOffset: Float,
+            yOffset: Float,
+            xOffsetStep: Float,
+            yOffsetStep: Float,
+            xPixelOffset: Int,
+            yPixelOffset: Int,
         ) {
             if (this.xOffset != xOffset) {
                 this.xOffset = xOffset
@@ -164,10 +172,10 @@ class ScrollingWallpaperService : WallpaperService() {
             holder: SurfaceHolder?,
             format: Int,
             width: Int,
-            height: Int
+            height: Int,
         ) {
             super.onSurfaceChanged(holder, format, width, height)
-            DLog.v("WallpaperService", "Surface changed: ${width}x${height}")
+            DLog.v("WallpaperService", "Surface changed: ${width}x$height")
             renderer.updateViewport(width.toFloat(), height.toFloat())
             scheduleDraw()
         }
@@ -196,12 +204,13 @@ class ScrollingWallpaperService : WallpaperService() {
          */
         private fun draw() {
             val holder = surfaceHolder
-            val canvas = try {
-                holder.lockHardwareCanvas()
-            } catch (e: Exception) {
-                Log.e("WallpaperService", "Canvas lock error", e)
-                null
-            } ?: return
+            val canvas =
+                try {
+                    holder.lockHardwareCanvas()
+                } catch (e: Exception) {
+                    Log.e("WallpaperService", "Canvas lock error", e)
+                    null
+                } ?: return
 
             try {
                 renderer.draw(canvas, xOffset)

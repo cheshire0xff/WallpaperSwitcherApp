@@ -8,9 +8,19 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
@@ -27,12 +37,14 @@ import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
 /**
  * Available screens in the app for navigation.
  */
-enum class Screen(val title: String) {
+enum class Screen(
+    val title: String,
+) {
     Dashboard("Wallpaper Switcher"),
     Queue("Upcoming Queue"),
     Favorites("Favorites"),
     History("History"),
-    ToRemove("To Remove")
+    ToRemove("To Remove"),
 }
 
 @Composable
@@ -44,27 +56,29 @@ fun MainAppShell(viewModel: WallpaperViewModel) {
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                isEngineEnabled = isWallpaperEngineActive(context)
-                viewModel.updateLockScreenStatus()
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    isEngineEnabled = isWallpaperEngineActive(context)
+                    viewModel.updateLockScreenStatus()
+                }
             }
-        }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
-        if (uri != null) {
-            context.contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-            viewModel.updateFolderUri(uri)
+    val launcher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocumentTree(),
+        ) { uri ->
+            if (uri != null) {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+                viewModel.updateFolderUri(uri)
+            }
         }
-    }
 
     if (showInformation) {
         InformationDialog(
@@ -78,7 +92,7 @@ fun MainAppShell(viewModel: WallpaperViewModel) {
             appDataPath = viewModel.appDataDir,
             folderUri = viewModel.folderUri,
             onResetSeen = { viewModel.resetSeen() },
-            onDismiss = { showInformation = false }
+            onDismiss = { showInformation = false },
         )
     }
 
@@ -92,17 +106,17 @@ fun MainAppShell(viewModel: WallpaperViewModel) {
                     val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
                     intent.putExtra(
                         WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
-                        ComponentName(context, ScrollingWallpaperService::class.java)
+                        ComponentName(context, ScrollingWallpaperService::class.java),
                     )
                     context.startActivity(intent)
-                }
+                },
             )
         },
         bottomBar = {
             AppBottomBar(
                 currentScreen = currentScreen,
                 viewModel = viewModel,
-                onNavigate = { currentScreen = it }
+                onNavigate = { currentScreen = it },
             )
         },
         floatingActionButtonPosition = FabPosition.Center,
@@ -111,21 +125,22 @@ fun MainAppShell(viewModel: WallpaperViewModel) {
                 ExtendedFloatingActionButton(
                     onClick = {
                         if (!isEngineEnabled) {
-                            Toast.makeText(
-                                context,
-                                "Please enable the engine first",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            Toast
+                                .makeText(
+                                    context,
+                                    "Please enable the engine first",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
                         }
                         viewModel.nextWallpaper()
                     },
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 ) {
                     Text(text = "Next Wallpaper")
                 }
             }
-        }
+        },
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
             NavigationHost(
@@ -133,12 +148,11 @@ fun MainAppShell(viewModel: WallpaperViewModel) {
                 viewModel = viewModel,
                 isEngineEnabled = isEngineEnabled,
                 onSelectFolder = { launcher.launch(null) },
-                onNavigate = { currentScreen = it }
+                onNavigate = { currentScreen = it },
             )
         }
     }
 }
-
 
 @Composable
 fun NavigationHost(
@@ -146,14 +160,14 @@ fun NavigationHost(
     viewModel: WallpaperViewModel,
     isEngineEnabled: Boolean,
     onSelectFolder: () -> Unit,
-    onNavigate: (Screen) -> Unit
+    onNavigate: (Screen) -> Unit,
 ) {
     when (currentScreen) {
         Screen.Dashboard -> {
             DashboardScreen(
                 viewModel = viewModel,
                 isEngineEnabled = isEngineEnabled,
-                onSelectFolder = onSelectFolder
+                onSelectFolder = onSelectFolder,
             )
         }
 
@@ -161,7 +175,7 @@ fun NavigationHost(
             ImageGridScreen(
                 images = viewModel.shuffledQueue,
                 viewModel = viewModel,
-                onBack = { onNavigate(Screen.Dashboard) }
+                onBack = { onNavigate(Screen.Dashboard) },
             )
         }
 
@@ -169,7 +183,7 @@ fun NavigationHost(
             ImageGridScreen(
                 images = viewModel.favoriteImages,
                 viewModel = viewModel,
-                onBack = { onNavigate(Screen.Dashboard) }
+                onBack = { onNavigate(Screen.Dashboard) },
             )
         }
 
@@ -177,7 +191,7 @@ fun NavigationHost(
             ImageGridScreen(
                 images = viewModel.historyImages,
                 viewModel = viewModel,
-                onBack = { onNavigate(Screen.Dashboard) }
+                onBack = { onNavigate(Screen.Dashboard) },
             )
         }
 
@@ -185,7 +199,7 @@ fun NavigationHost(
             ImageGridScreen(
                 images = viewModel.toRemoveImages,
                 viewModel = viewModel,
-                onBack = { onNavigate(Screen.Dashboard) }
+                onBack = { onNavigate(Screen.Dashboard) },
             )
         }
     }
@@ -195,5 +209,5 @@ private fun isWallpaperEngineActive(context: Context): Boolean {
     val wm = context.getSystemService(Context.WALLPAPER_SERVICE) as WallpaperManager
     val info: WallpaperInfo? = wm.wallpaperInfo
     return info != null && info.packageName == context.packageName &&
-            info.serviceName == ScrollingWallpaperService::class.java.name
+        info.serviceName == ScrollingWallpaperService::class.java.name
 }

@@ -11,7 +11,6 @@ import android.graphics.Paint
  * It manages the scaling and positioning of the wallpaper bitmap to support horizontal scrolling.
  */
 class ScrollingWallpaperRenderer {
-
     private val paint = Paint().apply { isFilterBitmap = true }
     private var wallpaperBitmap: Bitmap? = null
 
@@ -29,7 +28,10 @@ class ScrollingWallpaperRenderer {
      * @param width The width of the viewport.
      * @param height The height of the viewport.
      */
-    fun updateViewport(width: Float, height: Float) {
+    fun updateViewport(
+        width: Float,
+        height: Float,
+    ) {
         viewWidth = width
         viewHeight = height
         recalculate()
@@ -53,7 +55,10 @@ class ScrollingWallpaperRenderer {
      * @param canvas The canvas to draw on.
      * @param xOffset The horizontal scroll offset (0.0 to 1.0).
      */
-    fun draw(canvas: Canvas, xOffset: Float) {
+    fun draw(
+        canvas: Canvas,
+        xOffset: Float,
+    ) {
         val bitmap = wallpaperBitmap
         if (bitmap == null) {
             canvas.drawColor(Color.BLACK)
@@ -101,17 +106,21 @@ class ScrollingWallpaperRenderer {
      * @param xOffset A value between 0.0 and 1.0 representing the horizontal scroll position.
      * @return A [Matrix] containing the scale and translation, or null if the bitmap is null.
      */
-    private fun getTransformationMatrix(bitmap: Bitmap?, xOffset: Float): Matrix? {
+    private fun getTransformationMatrix(
+        bitmap: Bitmap?,
+        xOffset: Float,
+    ): Matrix? {
         val b = bitmap ?: return null
 
         // Calculate the horizontal translation.
         // If the scaled bitmap is wider than the view, use the xOffset to determine the shift.
         // Otherwise, center it horizontally.
-        val tx = if (maxScroll > 0) {
-            -xOffset * maxScroll
-        } else {
-            (viewWidth - b.width * finalScale) / 2f
-        }
+        val tx =
+            if (maxScroll > 0) {
+                -xOffset * maxScroll
+            } else {
+                (viewWidth - b.width * finalScale) / 2f
+            }
 
         drawMatrix.reset()
         drawMatrix.postScale(finalScale, finalScale)

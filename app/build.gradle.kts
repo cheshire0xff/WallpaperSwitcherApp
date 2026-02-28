@@ -12,8 +12,10 @@ plugins {
 spotless {
     kotlin {
         ktlint()
+        target("src/**/*.kt", "src/**/*.kts")
     }
 }
+
 
 fun getGitHash(): String {
     return try {
