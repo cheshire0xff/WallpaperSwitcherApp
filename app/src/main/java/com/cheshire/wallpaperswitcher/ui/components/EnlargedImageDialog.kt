@@ -3,6 +3,9 @@ package com.cheshire.wallpaperswitcher.ui.components
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -18,8 +21,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -48,6 +54,20 @@ fun EnlargedImageDialog(
     val isFavorite = name in viewModel.favoriteNames
     val isToRemove = name in viewModel.toRemoveNames
 
+    // Transformation state
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    val state = rememberTransformableState { zoomChange, offsetChange, _ ->
+        scale = (scale * zoomChange).coerceIn(1f, 5f)
+        // Only allow panning if zoomed in
+        if (scale > 1f) {
+            offset += offsetChange
+        } else {
+            offset = Offset.Zero
+        }
+    }
+    var showUI by remember { mutableStateOf(true) }
+
     LaunchedEffect(imagePair.first) {
         metadata = viewModel.fetchMetadata(imagePair.first)
     }
@@ -66,10 +86,33 @@ fun EnlargedImageDialog(
                     contentDescription = imagePair.second,
                     modifier = Modifier
                         .fillMaxSize()
-                        .clickable { onDismiss() },
+                        .graphicsLayer(
+                            scaleX = scale,
+                            scaleY = scale,
+                            translationX = offset.x,
+                            translationY = offset.y
+                        )
+                        .transformable(state = state)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = { showUI = !showUI },
+                                onDoubleTap = {
+                                    if (scale > 1f) {
+                                        scale = 1f
+                                        offset = Offset.Zero
+                                    } else {
+                                        scale = 3f
+                                    }
+                                }
+                            )
+                        },
                     contentScale = ContentScale.Fit
                 )
 
+                // Only show overlay when not zoomed in to keep view clean
+                if (showUI.not()) {
+                    return@Box
+                }
                 Surface(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -86,7 +129,6 @@ fun EnlargedImageDialog(
                             color = Color.White,
                             style = MaterialTheme.typography.titleMedium,
                             textAlign = TextAlign.Center,
-                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
 
@@ -155,7 +197,6 @@ fun EnlargedImageDialog(
                                 tint = if (isToRemove) MaterialTheme.colorScheme.error else Color.White
                             )
                         }
-
                     }
                 }
             }
