@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -57,6 +58,7 @@ import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
 
 /**
  * Dialog displaying an enlarged version of the selected thumbnail.
+ * Supports pinch-to-zoom and panning with bounded constraints.
  */
 @Composable
 fun EnlargedImageDialog(
@@ -75,16 +77,6 @@ fun EnlargedImageDialog(
     // Transformation state
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
-    val state =
-        rememberTransformableState { zoomChange, offsetChange, _ ->
-            scale = (scale * zoomChange).coerceIn(1f, 5f)
-            // Only allow panning if zoomed in
-            if (scale > 1f) {
-                offset += offsetChange
-            } else {
-                offset = Offset.Zero
-            }
-        }
     var showUI by remember { mutableStateOf(true) }
 
     LaunchedEffect(imagePair.first) {
@@ -99,126 +91,167 @@ fun EnlargedImageDialog(
             modifier = Modifier.fillMaxSize(),
             color = Color.Black,
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                AsyncImage(
-                    model = imagePair.first,
-                    contentDescription = imagePair.second,
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .graphicsLayer(
-                                scaleX = scale,
-                                scaleY = scale,
-                                translationX = offset.x,
-                                translationY = offset.y,
-                            ).transformable(state = state)
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onTap = { showUI = !showUI },
-                                    onDoubleTap = {
-                                        if (scale > 1f) {
-                                            scale = 1f
-                                            offset = Offset.Zero
-                                        } else {
-                                            scale = 3f
-                                        }
-                                    },
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val screenWidth = constraints.maxWidth.toFloat()
+                val screenHeight = constraints.maxHeight.toFloat()
+
+                val state =
+                    rememberTransformableState { zoomChange, offsetChange, _ ->
+                        val newScale = (scale * zoomChange).coerceIn(1f, 5f)
+
+                        // Calculate the actual image size as displayed by ContentScale.Fit
+                        val dimensions = metadata?.dimensions?.split("x")
+                        val iw = dimensions?.getOrNull(0)?.toFloatOrNull() ?: 0f
+                        val ih = dimensions?.getOrNull(1)?.toFloatOrNull() ?: 0f
+                        val (imgW, imgH) =
+                            if (iw > 0f && ih > 0f) {
+                                // Fitting calculations.
+                                val imgAspectRatio = iw / ih
+                                val screenAspectRatio = screenWidth / screenHeight
+                                if (imgAspectRatio > screenAspectRatio) {
+                                    screenWidth to (screenWidth / imgAspectRatio)
+                                } else {
+                                    (screenHeight * imgAspectRatio) to screenHeight
+                                }
+                            } else {
+                                screenWidth to screenHeight
+                            }
+                        // Bounds: image can't be panned further than its edges.
+                        // We allow a small extra margin (10%) for better feel, but keep it tight.
+                        val maxX = maxOf(0f, (imgW * newScale - screenWidth) / 2f)
+                        val maxY = maxOf(0f, (imgH * newScale - screenHeight) / 2f)
+
+                        // Speed up panning when zoomed in.
+                        val scaledOffsetChangeX = offsetChange.x * newScale
+                        val scaledOffsetChangeY = offsetChange.y * newScale
+
+                        scale = newScale
+                        offset =
+                            if (scale > 1.01f) {
+                                Offset(
+                                    x = (offset.x + scaledOffsetChangeX).coerceIn(-maxX, maxX),
+                                    y = (offset.y + scaledOffsetChangeY).coerceIn(-maxY, maxY),
                                 )
-                            },
-                    contentScale = ContentScale.Fit,
-                )
+                            } else {
+                                Offset.Zero
+                            }
+                    }
 
-                // Only show overlay when not zoomed in to keep view clean
-                if (showUI.not()) {
-                    return@Box
-                }
-                Surface(
-                    modifier =
-                        Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 48.dp, start = 24.dp, end = 24.dp),
-                    color = Color.Black.copy(alpha = 0.6f),
-                    shape = RoundedCornerShape(24.dp),
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                Box(modifier = Modifier.fillMaxSize()) {
+                    AsyncImage(
+                        model = imagePair.first,
+                        contentDescription = imagePair.second,
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .graphicsLayer(
+                                    scaleX = scale,
+                                    scaleY = scale,
+                                    translationX = offset.x,
+                                    translationY = offset.y,
+                                ).transformable(state = state)
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onTap = {
+                                            showUI = !showUI
+                                        },
+                                        onDoubleTap = {
+                                            if (scale > 1.05f) {
+                                                scale = 1f
+                                                offset = Offset.Zero
+                                            } else {
+                                                scale = 3f
+                                            }
+                                        },
+                                    )
+                                },
+                        contentScale = ContentScale.Fit,
+                    )
+                    if (showUI.not()) {
+                        return@Box
+                    }
+                    Surface(
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 48.dp, start = 24.dp, end = 24.dp),
+                        color = Color.Black.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(24.dp),
                     ) {
-                        Text(
-                            text = imagePair.second,
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleMedium,
-                            textAlign = TextAlign.Center,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                text = imagePair.second,
+                                color = Color.White,
+                                style = MaterialTheme.typography.titleMedium,
+                                textAlign = TextAlign.Center,
+                                overflow = TextOverflow.Ellipsis,
+                            )
 
-                        metadata?.let { meta ->
+                            metadata?.let { meta ->
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier =
+                                        Modifier
+                                            .alpha(0.8f)
+                                            .padding(top = 4.dp),
+                                ) {
+                                    Text(
+                                        text = meta.fileSizeMb,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White,
+                                    )
+                                    Text(
+                                        text = meta.dimensions,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White,
+                                    )
+                                }
+                            }
+
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 modifier =
                                     Modifier
-                                        .alpha(0.8f)
-                                        .padding(top = 4.dp),
+                                        .fillMaxWidth()
+                                        .padding(top = 24.dp, bottom = 16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                Text(
-                                    text = meta.fileSizeMb,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White,
+                                WallpaperActionButton(
+                                    icon = if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
+                                    label = "Fav",
+                                    onClick = { viewModel.toggleFavorite(name) },
+                                    tint = if (isFavorite) MaterialTheme.colorScheme.primary else Color.White,
                                 )
-                                Text(
-                                    text = meta.dimensions,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White,
+
+                                WallpaperActionButton(
+                                    icon = Icons.Default.Wallpaper,
+                                    label = "Home",
+                                    onClick = { onSetWallpaper() },
+                                )
+
+                                WallpaperActionButton(
+                                    icon = Icons.Default.Lock,
+                                    label = "Lock",
+                                    onClick = {
+                                        viewModel.setLockScreenOnly(imagePair.first)
+                                        Toast
+                                            .makeText(
+                                                context,
+                                                "Lock screen updated! 🔒",
+                                                Toast.LENGTH_SHORT,
+                                            ).show()
+                                    },
+                                )
+
+                                WallpaperActionButton(
+                                    icon = if (isToRemove) Icons.Default.DeleteSweep else Icons.Outlined.DeleteOutline,
+                                    label = "Trash",
+                                    onClick = { viewModel.toggleToRemove(name) },
+                                    tint = if (isToRemove) MaterialTheme.colorScheme.error else Color.White,
                                 )
                             }
-                        }
-
-                        Row(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 24.dp, bottom = 16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            // Favorite Button
-                            WallpaperActionButton(
-                                icon = if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
-                                label = "Fav",
-                                onClick = {
-                                    viewModel.toggleFavorite(name)
-                                },
-                                tint = if (isFavorite) MaterialTheme.colorScheme.primary else Color.White,
-                            )
-
-                            // Home Button
-                            WallpaperActionButton(
-                                icon = Icons.Default.Wallpaper,
-                                label = "Home",
-                                onClick = { onSetWallpaper() },
-                            )
-
-                            // Lock Button
-                            WallpaperActionButton(
-                                icon = Icons.Default.Lock,
-                                label = "Lock",
-                                onClick = {
-                                    viewModel.setLockScreenOnly(imagePair.first)
-                                    Toast
-                                        .makeText(
-                                            context,
-                                            "Lock screen updated! 🔒",
-                                            Toast.LENGTH_SHORT,
-                                        ).show()
-                                },
-                            )
-
-                            // Remove Button
-                            WallpaperActionButton(
-                                icon = if (isToRemove) Icons.Default.DeleteSweep else Icons.Outlined.DeleteOutline,
-                                label = "Trash",
-                                onClick = { viewModel.toggleToRemove(name) },
-                                tint = if (isToRemove) MaterialTheme.colorScheme.error else Color.White,
-                            )
                         }
                     }
                 }
