@@ -12,12 +12,11 @@ import androidx.core.net.toUri
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.cheshire.wallpaperswitcher.service.ScrollingWallpaperService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -34,6 +33,12 @@ private const val SEEN_IMAGES_FILE = "seen_images.txt"
 private const val FAVORITES_FILE = "favorites.txt"
 private const val TO_REMOVE_FILE = "to_remove.txt"
 
+data class CacheData(
+    val folderUri: Uri? = null,
+    val lastModified: Long? = null,
+    val images: List<Pair<Uri, String>> = emptyList()
+)
+
 @Singleton
 class WallpaperRepository @Inject constructor(
     @param:ApplicationContext
@@ -45,7 +50,6 @@ class WallpaperRepository @Inject constructor(
         val FOLDER_URI = stringPreferencesKey("folder_uri")
         val CURRENT_WALLPAPER_NAME = stringPreferencesKey("current_wallpaper_name")
         val CURRENT_WALLPAPER_URI = stringPreferencesKey("current_wallpaper_uri")
-        val LAST_MODIFIED = longPreferencesKey("last_modified")
     }
 
     private val fileMutexes = ConcurrentHashMap<String, Mutex>()
@@ -56,9 +60,8 @@ class WallpaperRepository @Inject constructor(
         get() = context.getExternalFilesDir("wallpapers") ?: context.externalCacheDir
         ?: context.cacheDir
 
-    suspend fun getFolderUri(): Uri? = dataStore.data
+    fun getFolderUri(): Flow<Uri?> = dataStore.data
         .map { preferences -> preferences[PreferenceKeys.FOLDER_URI]?.toUri() }
-        .first()
 
     suspend fun saveFolderUri(uri: Uri) {
         dataStore.edit { preferences ->
@@ -72,17 +75,11 @@ class WallpaperRepository @Inject constructor(
 
     suspend fun getToRemoveImages(): Set<String> = readSetFromFile(TO_REMOVE_FILE)
 
-    suspend fun getCurrentWallpaperName(): String? = dataStore.data
+    fun getCurrentWallpaperName(): Flow<String?> = dataStore.data
         .map { preferences -> preferences[PreferenceKeys.CURRENT_WALLPAPER_NAME] }
-        .first()
 
-    suspend fun getCurrentWallpaperUri(): Uri? = dataStore.data
+    fun getCurrentWallpaperUri(): Flow<Uri?> = dataStore.data
         .map { preferences -> preferences[PreferenceKeys.CURRENT_WALLPAPER_URI]?.toUri() }
-        .first()
-
-    suspend fun getLastModified(): Long = dataStore.data
-        .map { preferences -> preferences[PreferenceKeys.LAST_MODIFIED] ?: -1L }
-        .first()
 
     private suspend fun readSetFromFile(fileName: String): Set<String> =
         withContext(Dispatchers.IO) {
@@ -110,7 +107,7 @@ class WallpaperRepository @Inject constructor(
             }
         }
 
-    suspend fun getDirectoryLastModified(uri: Uri): Long = withContext(Dispatchers.IO) {
+    suspend fun getDirectoryLastModified(uri: Uri): Long? = withContext(Dispatchers.IO) {
         try {
             val documentId = DocumentsContract.getTreeDocumentId(uri)
             val documentUri = DocumentsContract.buildDocumentUriUsingTree(uri, documentId)
@@ -119,25 +116,39 @@ class WallpaperRepository @Inject constructor(
                 arrayOf(DocumentsContract.Document.COLUMN_LAST_MODIFIED),
                 null, null, null
             )?.use { cursor ->
-                if (cursor.moveToFirst()) cursor.getLong(0) else -1L
-            } ?: -1L
+                if (cursor.moveToFirst()) cursor.getLong(0) else null
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error getting last modified: ${e.message}")
-            -1L
+            null
         }
     }
 
-    suspend fun loadCache(): List<Pair<Uri, String>> = withContext(Dispatchers.IO) {
+    suspend fun loadCache(): CacheData = withContext(Dispatchers.IO) {
         mutexFor(CACHE_FILE_NAME).withLock {
+            var folderUri: Uri? = null
+            var lastModified: Long? = null
             val list = mutableListOf<Pair<Uri, String>>()
             try {
                 val file = File(baseDir, CACHE_FILE_NAME)
                 if (file.exists()) {
                     file.bufferedReader().useLines { lines ->
                         lines.forEach { line ->
-                            val parts = line.split("|", limit = 2)
-                            if (parts.size == 2) {
-                                list.add(parts[0].toUri() to parts[1])
+                            when {
+                                line.startsWith("# dir=") -> {
+                                    folderUri = line.substring(6).toUri()
+                                }
+
+                                line.startsWith("# lastModified=") -> {
+                                    lastModified = line.substring(15).toLongOrNull()
+                                }
+
+                                line.isNotBlank() && !line.startsWith("#") -> {
+                                    val parts = line.split("|", limit = 2)
+                                    if (parts.size == 2) {
+                                        list.add(parts[0].toUri() to parts[1])
+                                    }
+                                }
                             }
                         }
                     }
@@ -145,7 +156,7 @@ class WallpaperRepository @Inject constructor(
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading cache: ${e.message}")
             }
-            list
+            CacheData(folderUri, lastModified, list)
         }
     }
 
@@ -181,30 +192,33 @@ class WallpaperRepository @Inject constructor(
             }
 
             val currentModified = getDirectoryLastModified(uri)
-            saveCacheToFile(newList)
-            dataStore.edit { preferences ->
-                preferences[PreferenceKeys.LAST_MODIFIED] = currentModified
-            }
+            saveCacheToFile(uri, currentModified, newList)
         } catch (e: Exception) {
             Log.e(TAG, "Error refreshing cache: ${e.message}")
         }
         newList
     }
 
-    private suspend fun saveCacheToFile(list: List<Pair<Uri, String>>) =
-        withContext(Dispatchers.IO) {
-            mutexFor(CACHE_FILE_NAME).withLock {
-                try {
-                    val file = File(baseDir, CACHE_FILE_NAME)
-                    file.bufferedWriter().use { writer ->
-                        list.forEach { (uri, name) ->
-                            writer.write("${uri}|${name}")
-                            writer.newLine()
-                        }
+    private suspend fun saveCacheToFile(
+        folderUri: Uri,
+        lastModified: Long?,
+        list: List<Pair<Uri, String>>
+    ) =
+        mutexFor(CACHE_FILE_NAME).withLock {
+            try {
+                val file = File(baseDir, CACHE_FILE_NAME)
+                file.bufferedWriter().use { writer ->
+                    writer.write("# dir=$folderUri")
+                    writer.newLine()
+                    writer.write("# lastModified=${lastModified ?: 0}")
+                    writer.newLine()
+                    list.forEach { (uri, name) ->
+                        writer.write("${uri}|${name}")
+                        writer.newLine()
                     }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error saving cache to file: ${e.message}")
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving cache to file: ${e.message}")
             }
         }
 
@@ -216,7 +230,8 @@ class WallpaperRepository @Inject constructor(
                 BitmapFactory.decodeStream(input, null, options)
                 size = "${options.outWidth}x${options.outHeight}"
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting image resolution: ${e.message}")
         }
         size
     }
@@ -232,7 +247,8 @@ class WallpaperRepository @Inject constructor(
                         String.format(Locale.US, "%.2f MB", sizeBytes.toDouble() / (1024 * 1024))
                 }
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting image size: ${e.message}")
         }
         sizeMb
     }

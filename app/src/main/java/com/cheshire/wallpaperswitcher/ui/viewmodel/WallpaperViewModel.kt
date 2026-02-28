@@ -11,6 +11,7 @@ import com.cheshire.wallpaperswitcher.data.WallpaperRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -63,13 +64,6 @@ class WallpaperViewModel @Inject constructor(
         toRemoveNames.mapNotNull { name -> imageMap[name]?.let { it to name } }
     }
 
-    var someState1 by mutableStateOf(0)
-    var someState2 by mutableStateOf(0)
-
-    val whatAboutThis by derivedStateOf {
-        if (someState1 == 0) someState1 else someState2
-    }
-
     // Exposed for the images screen
     var shuffledQueue by mutableStateOf<List<Pair<Uri, String>>>(emptyList())
         private set
@@ -79,9 +73,9 @@ class WallpaperViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            folderUri = repository.getFolderUri()
-            currentWallpaperName = repository.getCurrentWallpaperName()
-            currentWallpaperUri = repository.getCurrentWallpaperUri()
+            folderUri = repository.getFolderUri().first()
+            currentWallpaperName = repository.getCurrentWallpaperName().first()
+            currentWallpaperUri = repository.getCurrentWallpaperUri().first()
             seenImageNames = repository.getSeenImages()
             favoriteNames = repository.getFavoriteImages()
             toRemoveNames = repository.getToRemoveImages()
@@ -110,13 +104,18 @@ class WallpaperViewModel @Inject constructor(
         val uri = folderUri ?: return
         viewModelScope.launch {
             isCaching = true
-            val lastStoredModified = repository.getLastModified()
+            val cache = repository.loadCache()
             val currentModified = repository.getDirectoryLastModified(uri)
-            val loadedCache = repository.loadCache()
+
+            val isCacheValid = cache.folderUri == uri &&
+                    cache.lastModified != null &&
+                    currentModified != null &&
+                    currentModified == cache.lastModified &&
+                    cache.images.isNotEmpty()
 
             cachedImages =
-                if (currentModified != -1L && currentModified == lastStoredModified && loadedCache.isNotEmpty()) {
-                    loadedCache
+                if (isCacheValid) {
+                    cache.images
                 } else {
                     repository.refreshCache(uri)
                 }
@@ -148,24 +147,17 @@ class WallpaperViewModel @Inject constructor(
 
     fun nextWallpaper() {
         if (cachedImages.isEmpty()) return
-
         viewModelScope.launch {
-            var pair = playlist.getNext()
-
-            if (pair == null) {
-                // All images in the current cycle seen, reset history and start over
+            val pair = playlist.getNext() ?: run {
                 resetSeen()
-                pair = playlist.getNext() ?: return@launch
+                playlist.getNext() ?: return@launch
             }
-
-            shuffledQueue = playlist.getQueue()
-
-            currentWallpaperUri = pair.first
-            currentWallpaperName = pair.second
-
             markAsSeen(pair.second)
             repository.updateCurrentWallpaper(pair.first, pair.second)
             updateMetadata(pair.first)
+            shuffledQueue = playlist.getQueue()
+            currentWallpaperUri = pair.first
+            currentWallpaperName = pair.second
         }
     }
 
@@ -191,10 +183,8 @@ class WallpaperViewModel @Inject constructor(
         }
     }
 
-    private fun updateMetadata(uri: Uri) {
-        viewModelScope.launch {
-            currentMetadata = fetchMetadata(uri)
-        }
+    private suspend fun updateMetadata(uri: Uri) {
+        currentMetadata = fetchMetadata(uri)
     }
 
     suspend fun fetchMetadata(uri: Uri): WallpaperMetadata = coroutineScope {
@@ -203,13 +193,11 @@ class WallpaperViewModel @Inject constructor(
         WallpaperMetadata(sizeMb.await(), res.await())
     }
 
-    private fun markAsSeen(name: String) {
+    private suspend fun markAsSeen(name: String) {
         if (name !in seenImageNames) {
             val newSeen = seenImageNames + name
             seenImageNames = newSeen
-            viewModelScope.launch {
-                repository.saveSeenImages(newSeen)
-            }
+            repository.saveSeenImages(newSeen)
             playlist.updateSeenHistory(newSeen)
         }
     }
