@@ -11,10 +11,8 @@ import android.graphics.Paint
  * It manages the scaling and positioning of the wallpaper bitmap to support horizontal scrolling.
  */
 class ScrollingWallpaperRenderer {
-    /**
-     * Paint object used for drawing the bitmap, with filtering enabled for better quality when scaled.
-     */
-    val paint = Paint().apply { isFilterBitmap = true }
+
+    private val paint = Paint().apply { isFilterBitmap = true }
     private var wallpaperBitmap: Bitmap? = null
 
     private val drawMatrix = Matrix()
@@ -26,7 +24,7 @@ class ScrollingWallpaperRenderer {
     private var viewHeight = 0f
 
     /**
-     * Updates the dimensions of the viewable area (the surface).
+     * Updates the dimensions of the viewable area (the surface) and triggers a recalculation.
      *
      * @param width The width of the viewport.
      * @param height The height of the viewport.
@@ -37,18 +35,27 @@ class ScrollingWallpaperRenderer {
         recalculate()
     }
 
-    fun prepareBitmap(bitmap: Bitmap)
-    {
+    /**
+     * Sets a new bitmap to be used as the wallpaper.
+     * Handles recycling of the old bitmap and triggers a recalculation of dimensions.
+     *
+     * @param bitmap The new wallpaper bitmap.
+     */
+    fun prepareBitmap(bitmap: Bitmap) {
         wallpaperBitmap?.recycle()
         wallpaperBitmap = bitmap
         recalculate()
     }
 
-    fun draw(canvas: Canvas, xOffset: Float)
-    {
+    /**
+     * Draws the wallpaper onto the provided canvas, applying the correct horizontal scroll offset.
+     *
+     * @param canvas The canvas to draw on.
+     * @param xOffset The horizontal scroll offset (0.0 to 1.0).
+     */
+    fun draw(canvas: Canvas, xOffset: Float) {
         val bitmap = wallpaperBitmap
-        if (bitmap == null)
-        {
+        if (bitmap == null) {
             canvas.drawColor(Color.BLACK)
             return
         }
@@ -59,16 +66,16 @@ class ScrollingWallpaperRenderer {
         }
     }
 
-    fun recycle()
-    {
+    /**
+     * Recycles the current wallpaper bitmap and clears the reference.
+     */
+    fun recycle() {
         wallpaperBitmap?.recycle()
         wallpaperBitmap = null
     }
 
-
     /**
-     * Recalculates scaling factors and scroll limits based on the provided bitmap and current viewport.
-     * This should be called whenever the bitmap changes or the viewport is updated.
+     * Recalculates scaling factors and scroll limits based on the current bitmap and viewport.
      */
     private fun recalculate() {
         val b = wallpaperBitmap ?: return
@@ -87,7 +94,6 @@ class ScrollingWallpaperRenderer {
         ty = (viewHeight - bitmapHeight * finalScale) / 2f
     }
 
-
     /**
      * Generates the transformation matrix for drawing the wallpaper based on the current horizontal offset.
      *
@@ -97,7 +103,7 @@ class ScrollingWallpaperRenderer {
      */
     private fun getTransformationMatrix(bitmap: Bitmap?, xOffset: Float): Matrix? {
         val b = bitmap ?: return null
-        
+
         // Calculate the horizontal translation.
         // If the scaled bitmap is wider than the view, use the xOffset to determine the shift.
         // Otherwise, center it horizontally.
