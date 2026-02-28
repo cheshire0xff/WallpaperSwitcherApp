@@ -1,7 +1,6 @@
 package com.cheshire.wallpaperswitcher.ui.components
 
 import android.net.Uri
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -36,121 +35,85 @@ fun CurrentWallpaperCard(
     onToggleToRemove: () -> Unit,
     onClick: () -> Unit
 ) {
-    ElevatedCard(
-        modifier = modifier
-            .fillMaxWidth()
-            .aspectRatio(0.8f)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(28.dp)
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            // Layer 1: The Image
-            AsyncImage(
-                model = uri,
-                contentDescription = "Current Wallpaper",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+    Column(modifier = modifier.fillMaxWidth()) {
+        // Thumbnail Card containing Image and Icons
+        ElevatedCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(0.7f)
+                .clickable { onClick() },
+            shape = RoundedCornerShape(28.dp)
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Layer 1: The Image
+                AsyncImage(
+                    model = uri,
+                    contentDescription = "Current Wallpaper",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
 
-            // Layer 2: Status Badges (Top Layer)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                // Favorite Badge (Left)
-                if (isFavorite) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
-                        shape = CircleShape,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Default.Favorite,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
-                } else {
-                    Spacer(Modifier.size(32.dp))
-                }
-
-                // Removal Badge (Right)
-                if (isToRemove) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
-                        shape = CircleShape,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Default.DeleteSweep,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Layer 3 & 4: Information Scrim and Buttons (Bottom Overlay)
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Text Layout with Glass Pill
-                Surface(
-                    color = Color.Black.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                        Text(
-                            text = name ?: "Unknown Wallpaper",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.alpha(0.8f)
-                        ) {
-                            Text(
-                                text = metadata.fileSizeMb,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White
-                            )
-                            Text(
-                                text = metadata.dimensions,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-
-                // Split Action Buttons
+                // Layer 2: Status Badges (Top Layer)
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    // Favorite Badge (Left)
+                    if (isFavorite) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
+                            shape = CircleShape,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.Favorite,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                    } else {
+                        Spacer(Modifier.size(32.dp))
+                    }
+
+                    // Removal Badge (Right)
+                    if (isToRemove) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
+                            shape = CircleShape,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.DeleteSweep,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Layer 3: Action Buttons (Bottom Layer inside Thumb)
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Favorite Button
+                    // Favorite Toggle Button
                     FilledTonalIconButton(
                         onClick = onToggleFavorite,
                         colors = if (isFavorite) {
                             IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         } else {
@@ -166,12 +129,12 @@ fun CurrentWallpaperCard(
                         )
                     }
 
-                    // Remove Button
+                    // Remove Toggle Button
                     FilledTonalIconButton(
                         onClick = onToggleToRemove,
                         colors = if (isToRemove) {
                             IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
                                 contentColor = MaterialTheme.colorScheme.onErrorContainer
                             )
                         } else {
@@ -187,6 +150,34 @@ fun CurrentWallpaperCard(
                         )
                     }
                 }
+            }
+        }
+
+        // Information Section (Outside the card, below the thumbnail)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp, start = 8.dp, end = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = name ?: "Unknown Wallpaper",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                overflow = TextOverflow.Ellipsis
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.alpha(0.7f)
+            ) {
+                Text(
+                    text = metadata.fileSizeMb,
+                    style = MaterialTheme.typography.labelSmall
+                )
+                Text(
+                    text = metadata.dimensions,
+                    style = MaterialTheme.typography.labelSmall
+                )
             }
         }
     }
