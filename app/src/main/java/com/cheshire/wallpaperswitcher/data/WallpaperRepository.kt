@@ -15,6 +15,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.cheshire.wallpaperswitcher.service.ScrollingWallpaperService
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -43,7 +44,8 @@ data class CacheData(
 class WallpaperRepository @Inject constructor(
     @param:ApplicationContext
     private val context: Context,
-    private val dataStore: DataStore<Preferences>
+    private val dataStore: DataStore<Preferences>,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
 
     private object PreferenceKeys {
@@ -82,7 +84,7 @@ class WallpaperRepository @Inject constructor(
         .map { preferences -> preferences[PreferenceKeys.CURRENT_WALLPAPER_URI]?.toUri() }
 
     private suspend fun readSetFromFile(fileName: String): Set<String> =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             mutexFor(fileName).withLock {
                 val file = File(baseDir, fileName)
                 if (!file.exists()) return@withLock emptySet()
@@ -96,7 +98,7 @@ class WallpaperRepository @Inject constructor(
         }
 
     private suspend fun saveSetToFile(fileName: String, set: Set<String>) =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             mutexFor(fileName).withLock {
                 try {
                     val file = File(baseDir, fileName)
@@ -107,7 +109,7 @@ class WallpaperRepository @Inject constructor(
             }
         }
 
-    suspend fun getDirectoryLastModified(uri: Uri): Long? = withContext(Dispatchers.IO) {
+    suspend fun getDirectoryLastModified(uri: Uri): Long? = withContext(ioDispatcher) {
         try {
             val documentId = DocumentsContract.getTreeDocumentId(uri)
             val documentUri = DocumentsContract.buildDocumentUriUsingTree(uri, documentId)
@@ -124,7 +126,7 @@ class WallpaperRepository @Inject constructor(
         }
     }
 
-    suspend fun loadCache(): CacheData = withContext(Dispatchers.IO) {
+    suspend fun loadCache(): CacheData = withContext(ioDispatcher) {
         mutexFor(CACHE_FILE_NAME).withLock {
             var folderUri: Uri? = null
             var lastModified: Long? = null
@@ -138,11 +140,9 @@ class WallpaperRepository @Inject constructor(
                                 line.startsWith("# dir=") -> {
                                     folderUri = line.substring(6).toUri()
                                 }
-
                                 line.startsWith("# lastModified=") -> {
                                     lastModified = line.substring(15).toLongOrNull()
                                 }
-
                                 line.isNotBlank() && !line.startsWith("#") -> {
                                     val parts = line.split("|", limit = 2)
                                     if (parts.size == 2) {
@@ -160,7 +160,7 @@ class WallpaperRepository @Inject constructor(
         }
     }
 
-    suspend fun refreshCache(uri: Uri): List<Pair<Uri, String>> = withContext(Dispatchers.IO) {
+    suspend fun refreshCache(uri: Uri): List<Pair<Uri, String>> = withContext(ioDispatcher) {
         val newList = mutableListOf<Pair<Uri, String>>()
         try {
             val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
@@ -199,30 +199,28 @@ class WallpaperRepository @Inject constructor(
         newList
     }
 
-    private suspend fun saveCacheToFile(
-        folderUri: Uri,
-        lastModified: Long?,
-        list: List<Pair<Uri, String>>
-    ) =
-        mutexFor(CACHE_FILE_NAME).withLock {
-            try {
-                val file = File(baseDir, CACHE_FILE_NAME)
-                file.bufferedWriter().use { writer ->
-                    writer.write("# dir=$folderUri")
-                    writer.newLine()
-                    writer.write("# lastModified=${lastModified ?: 0}")
-                    writer.newLine()
-                    list.forEach { (uri, name) ->
-                        writer.write("${uri}|${name}")
+    private suspend fun saveCacheToFile(folderUri: Uri, lastModified: Long?, list: List<Pair<Uri, String>>) =
+        withContext(ioDispatcher) {
+            mutexFor(CACHE_FILE_NAME).withLock {
+                try {
+                    val file = File(baseDir, CACHE_FILE_NAME)
+                    file.bufferedWriter().use { writer ->
+                        writer.write("# dir=$folderUri")
                         writer.newLine()
+                        writer.write("# lastModified=${lastModified ?: 0}")
+                        writer.newLine()
+                        list.forEach { (uri, name) ->
+                            writer.write("${uri}|${name}")
+                            writer.newLine()
+                        }
                     }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error saving cache to file: ${e.message}")
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error saving cache to file: ${e.message}")
             }
         }
 
-    suspend fun getImageResolution(uri: Uri): String = withContext(Dispatchers.IO) {
+    suspend fun getImageResolution(uri: Uri): String = withContext(ioDispatcher) {
         var size = "Unknown"
         try {
             context.contentResolver.openInputStream(uri)?.use { input ->
@@ -236,7 +234,7 @@ class WallpaperRepository @Inject constructor(
         size
     }
 
-    suspend fun getImageSize(uri: Uri): String = withContext(Dispatchers.IO) {
+    suspend fun getImageSize(uri: Uri): String = withContext(ioDispatcher) {
         var sizeMb = "0.0 MB"
         try {
             context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
@@ -253,7 +251,7 @@ class WallpaperRepository @Inject constructor(
         sizeMb
     }
 
-    suspend fun isManagingLockScreen(): Boolean = withContext(Dispatchers.IO) {
+    suspend fun isManagingLockScreen(): Boolean = withContext(ioDispatcher) {
         val wm = WallpaperManager.getInstance(context)
         val packageName = context.packageName
         val serviceName = ScrollingWallpaperService::class.java.name
@@ -291,7 +289,7 @@ class WallpaperRepository @Inject constructor(
         context.sendBroadcast(updateIntent)
     }
 
-    suspend fun setLockScreen(uri: Uri) = withContext(Dispatchers.IO) {
+    suspend fun setLockScreen(uri: Uri) = withContext(ioDispatcher) {
         try {
             val wallpaperManager = WallpaperManager.getInstance(context)
             context.contentResolver.openInputStream(uri)?.use { inputStream ->

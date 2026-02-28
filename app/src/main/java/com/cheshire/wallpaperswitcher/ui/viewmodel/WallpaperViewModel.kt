@@ -107,7 +107,8 @@ class WallpaperViewModel @Inject constructor(
             val cache = repository.loadCache()
             val currentModified = repository.getDirectoryLastModified(uri)
 
-            val isCacheValid = cache.folderUri == uri &&
+            val isCacheValid = cache.folderUri != null &&
+                    cache.folderUri == uri &&
                     cache.lastModified != null &&
                     currentModified != null &&
                     currentModified == cache.lastModified &&

@@ -10,6 +10,8 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import javax.inject.Singleton
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "WallpaperPrefs")
@@ -25,11 +27,15 @@ object AppModule {
     }
 
     @Provides
+    fun provideIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
+
+    @Provides
     @Singleton
     fun provideWallpaperRepository(
         @ApplicationContext context: Context,
-        dataStore: DataStore<Preferences>
+        dataStore: DataStore<Preferences>,
+        ioDispatcher: CoroutineDispatcher
     ): WallpaperRepository {
-        return WallpaperRepository(context, dataStore)
+        return WallpaperRepository(context, dataStore, ioDispatcher)
     }
 }

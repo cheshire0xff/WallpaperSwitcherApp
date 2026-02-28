@@ -19,6 +19,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -92,7 +93,7 @@ class ScrollingWallpaperService : WallpaperService() {
             registerReceiver(receiver, filter, RECEIVER_EXPORTED)
 
             serviceScope.launch {
-                val uri = repository.getCurrentWallpaperUri()
+                val uri = repository.getCurrentWallpaperUri().first()
                 uri?.let {
                     loadWallpaper(it)
                 }
