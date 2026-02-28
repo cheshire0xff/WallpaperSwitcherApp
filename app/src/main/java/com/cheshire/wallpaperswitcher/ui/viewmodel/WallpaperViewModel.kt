@@ -8,16 +8,21 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cheshire.wallpaperswitcher.data.WallpaperRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class WallpaperMetadata(
     val fileSizeMb: String = "0.0 MB",
     val dimensions: String = "0x0"
 )
 
-class WallpaperViewModel(private val repository: WallpaperRepository) : ViewModel() {
+@HiltViewModel
+class WallpaperViewModel @Inject constructor(
+    private val repository: WallpaperRepository
+) : ViewModel() {
     val appDataDir: String = repository.baseDir.absolutePath
 
     var folderUri by mutableStateOf<Uri?>(null)
@@ -73,26 +78,32 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
     private val playlist = WallpaperPlaylist()
 
     init {
-        folderUri = repository.getFolderUri()
-        currentWallpaperName = repository.getCurrentWallpaperName()
-        currentWallpaperUri = repository.getCurrentWallpaperUri()
-        seenImageNames = repository.getSeenImages()
-        favoriteNames = repository.getFavoriteImages()
-        toRemoveNames = repository.getToRemoveImages()
+        viewModelScope.launch {
+            folderUri = repository.getFolderUri()
+            currentWallpaperName = repository.getCurrentWallpaperName()
+            currentWallpaperUri = repository.getCurrentWallpaperUri()
+            seenImageNames = repository.getSeenImages()
+            favoriteNames = repository.getFavoriteImages()
+            toRemoveNames = repository.getToRemoveImages()
 
-        folderUri?.let { refreshCache() }
-        currentWallpaperUri?.let { updateMetadata(it) }
-        updateLockScreenStatus()
+            folderUri?.let { refreshCache() }
+            currentWallpaperUri?.let { updateMetadata(it) }
+            updateLockScreenStatus()
+        }
     }
 
     fun updateLockScreenStatus() {
-        managesLockScreen = repository.isManagingLockScreen()
+        viewModelScope.launch {
+            managesLockScreen = repository.isManagingLockScreen()
+        }
     }
 
     fun updateFolderUri(uri: Uri) {
         folderUri = uri
-        repository.saveFolderUri(uri)
-        refreshCache()
+        viewModelScope.launch {
+            repository.saveFolderUri(uri)
+            refreshCache()
+        }
     }
 
     private fun refreshCache() {
@@ -124,7 +135,7 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
         }
     }
 
-    private fun setInitialWallpaper() {
+    private suspend fun setInitialWallpaper() {
         val pair = playlist.getNext() ?: return
         shuffledQueue = playlist.getQueue()
         currentWallpaperUri = pair.first
@@ -187,8 +198,8 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
     }
 
     suspend fun fetchMetadata(uri: Uri): WallpaperMetadata = coroutineScope {
-        val res = async { repository.getImageResolution(uri)}
-        val sizeMb = async { repository.getImageSize(uri)}
+        val res = async { repository.getImageResolution(uri) }
+        val sizeMb = async { repository.getImageSize(uri) }
         WallpaperMetadata(sizeMb.await(), res.await())
     }
 
@@ -196,7 +207,9 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
         if (name !in seenImageNames) {
             val newSeen = seenImageNames + name
             seenImageNames = newSeen
-            repository.saveSeenImages(newSeen)
+            viewModelScope.launch {
+                repository.saveSeenImages(newSeen)
+            }
             playlist.updateSeenHistory(newSeen)
         }
     }
@@ -209,7 +222,9 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
             favoriteNames + targetName
         }
         favoriteNames = newFavorites
-        repository.saveFavorites(newFavorites)
+        viewModelScope.launch {
+            repository.saveFavorites(newFavorites)
+        }
     }
 
     fun toggleToRemove(name: String? = null) {
@@ -220,12 +235,16 @@ class WallpaperViewModel(private val repository: WallpaperRepository) : ViewMode
             toRemoveNames + targetName
         }
         toRemoveNames = newToRemove
-        repository.saveToRemoveImages(newToRemove)
+        viewModelScope.launch {
+            repository.saveToRemoveImages(newToRemove)
+        }
     }
 
     fun resetSeen() {
         seenImageNames = emptySet()
-        repository.saveSeenImages(emptySet())
+        viewModelScope.launch {
+            repository.saveSeenImages(emptySet())
+        }
         playlist.updateSeenHistory(emptySet())
         shuffledQueue = playlist.getQueue()
     }

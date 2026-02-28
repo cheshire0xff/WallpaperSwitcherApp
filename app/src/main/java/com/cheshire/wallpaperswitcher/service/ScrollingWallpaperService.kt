@@ -16,7 +16,15 @@ import android.util.Log
 import android.view.Choreographer
 import android.view.SurfaceHolder
 import androidx.core.net.toUri
+import com.cheshire.wallpaperswitcher.data.WallpaperRepository
 import com.cheshire.wallpaperswitcher.util.DLog
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * Live Wallpaper Service that handles image rendering and horizontal scrolling.
@@ -24,13 +32,28 @@ import com.cheshire.wallpaperswitcher.util.DLog
  * INTERACTION WITH THE APP:
  * 1. Communication: Uses a BroadcastReceiver to listen for 'UPDATE_WALLPAPER' intents
  *    sent by the main app when a user selects a new wallpaper.
- * 2. Persistence: Reads the 'current_wallpaper_uri' from SharedPreferences ('WallpaperPrefs')
+ * 2. Persistence: Reads the 'current_wallpaper_uri' from DataStore via WallpaperRepository
  *    on startup to restore the last used wallpaper after a reboot or service restart.
  */
+@AndroidEntryPoint
 class ScrollingWallpaperService : WallpaperService() {
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    @Inject
+    lateinit var repository: WallpaperRepository
+
+    override fun onCreate() {
+        super.onCreate()
+    }
+
     override fun onCreateEngine(): Engine {
         DLog.v("WallpaperService", "Service: onCreateEngine called")
         return ScrollingEngine()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        serviceScope.cancel()
     }
 
     inner class ScrollingEngine : Engine(), Choreographer.FrameCallback {
@@ -83,9 +106,11 @@ class ScrollingWallpaperService : WallpaperService() {
              * On initialization (like after a phone reboot), we read the same preference file 
              * written by the main app to ensure we are displaying the correct wallpaper immediately.
              */
-            val prefs = getSharedPreferences("WallpaperPrefs", MODE_PRIVATE)
-            prefs.getString("current_wallpaper_uri", null)?.let {
-                loadWallpaper(it.toUri())
+            serviceScope.launch {
+                val uri = repository.getCurrentWallpaperUri()
+                uri?.let {
+                    loadWallpaper(it)
+                }
             }
         }
 

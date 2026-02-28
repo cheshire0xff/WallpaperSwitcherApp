@@ -8,66 +8,107 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.util.Log
-import androidx.core.content.edit
 import androidx.core.net.toUri
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import com.cheshire.wallpaperswitcher.service.ScrollingWallpaperService
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
+import javax.inject.Inject
+import javax.inject.Singleton
 
 private const val TAG = "WallpaperRepository"
 private const val CACHE_FILE_NAME = "image_cache.txt"
 private const val SEEN_IMAGES_FILE = "seen_images.txt"
 private const val FAVORITES_FILE = "favorites.txt"
 private const val TO_REMOVE_FILE = "to_remove.txt"
-private const val PREFS_NAME = "WallpaperPrefs"
 
-class WallpaperRepository(val context: Context) {
-    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+@Singleton
+class WallpaperRepository @Inject constructor(
+    @param:ApplicationContext
+    private val context: Context,
+    private val dataStore: DataStore<Preferences>
+) {
+
+    private object PreferenceKeys {
+        val FOLDER_URI = stringPreferencesKey("folder_uri")
+        val CURRENT_WALLPAPER_NAME = stringPreferencesKey("current_wallpaper_name")
+        val CURRENT_WALLPAPER_URI = stringPreferencesKey("current_wallpaper_uri")
+        val LAST_MODIFIED = longPreferencesKey("last_modified")
+    }
+
+    private val fileMutexes = ConcurrentHashMap<String, Mutex>()
+
+    private fun mutexFor(fileName: String) = fileMutexes.computeIfAbsent(fileName) { Mutex() }
 
     val baseDir: File
-        get() = context.getExternalFilesDir("wallpapers") ?: context.externalCacheDir ?: context.cacheDir
+        get() = context.getExternalFilesDir("wallpapers") ?: context.externalCacheDir
+        ?: context.cacheDir
 
-    fun getFolderUri(): Uri? = prefs.getString("folder_uri", null)?.toUri()
+    suspend fun getFolderUri(): Uri? = dataStore.data
+        .map { preferences -> preferences[PreferenceKeys.FOLDER_URI]?.toUri() }
+        .first()
 
-
-
-    fun saveFolderUri(uri: Uri) {
-        prefs.edit { putString("folder_uri", uri.toString()) }
-    }
-
-    fun getSeenImages(): Set<String> = readSetFromFile(SEEN_IMAGES_FILE)
-
-    fun getFavoriteImages(): Set<String> = readSetFromFile(FAVORITES_FILE)
-
-    fun getToRemoveImages(): Set<String> = readSetFromFile(TO_REMOVE_FILE)
-
-    fun getCurrentWallpaperName(): String? = prefs.getString("current_wallpaper_name", null)
-
-    fun getCurrentWallpaperUri(): Uri? = prefs.getString("current_wallpaper_uri", null)?.toUri()
-
-    fun getLastModified(): Long = prefs.getLong("last_modified", -1L)
-
-    private fun readSetFromFile(fileName: String): Set<String> {
-        val file = File(baseDir, fileName)
-        if (!file.exists()) return emptySet()
-        return try {
-            file.readLines().filter { it.isNotBlank() }.toSet()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error reading $fileName: ${e.message}")
-            emptySet()
+    suspend fun saveFolderUri(uri: Uri) {
+        dataStore.edit { preferences ->
+            preferences[PreferenceKeys.FOLDER_URI] = uri.toString()
         }
     }
 
-    private fun saveSetToFile(fileName: String, set: Set<String>) {
-        try {
-            val file = File(baseDir, fileName)
-            file.writeText(set.joinToString("\n"))
-        } catch (e: Exception) {
-            Log.e(TAG, "Error saving $fileName: ${e.message}")
+    suspend fun getSeenImages(): Set<String> = readSetFromFile(SEEN_IMAGES_FILE)
+
+    suspend fun getFavoriteImages(): Set<String> = readSetFromFile(FAVORITES_FILE)
+
+    suspend fun getToRemoveImages(): Set<String> = readSetFromFile(TO_REMOVE_FILE)
+
+    suspend fun getCurrentWallpaperName(): String? = dataStore.data
+        .map { preferences -> preferences[PreferenceKeys.CURRENT_WALLPAPER_NAME] }
+        .first()
+
+    suspend fun getCurrentWallpaperUri(): Uri? = dataStore.data
+        .map { preferences -> preferences[PreferenceKeys.CURRENT_WALLPAPER_URI]?.toUri() }
+        .first()
+
+    suspend fun getLastModified(): Long = dataStore.data
+        .map { preferences -> preferences[PreferenceKeys.LAST_MODIFIED] ?: -1L }
+        .first()
+
+    private suspend fun readSetFromFile(fileName: String): Set<String> =
+        withContext(Dispatchers.IO) {
+            mutexFor(fileName).withLock {
+                val file = File(baseDir, fileName)
+                if (!file.exists()) return@withLock emptySet()
+                try {
+                    file.readLines().filter { it.isNotBlank() }.toSet()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error reading $fileName: ${e.message}")
+                    emptySet()
+                }
+            }
         }
-    }
+
+    private suspend fun saveSetToFile(fileName: String, set: Set<String>) =
+        withContext(Dispatchers.IO) {
+            mutexFor(fileName).withLock {
+                try {
+                    val file = File(baseDir, fileName)
+                    file.writeText(set.joinToString("\n"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error saving $fileName: ${e.message}")
+                }
+            }
+        }
 
     suspend fun getDirectoryLastModified(uri: Uri): Long = withContext(Dispatchers.IO) {
         try {
@@ -87,23 +128,25 @@ class WallpaperRepository(val context: Context) {
     }
 
     suspend fun loadCache(): List<Pair<Uri, String>> = withContext(Dispatchers.IO) {
-        val list = mutableListOf<Pair<Uri, String>>()
-        try {
-            val file = File(baseDir, CACHE_FILE_NAME)
-            if (file.exists()) {
-                file.bufferedReader().useLines { lines ->
-                    lines.forEach { line ->
-                        val parts = line.split("|", limit = 2)
-                        if (parts.size == 2) {
-                            list.add(parts[0].toUri() to parts[1])
+        mutexFor(CACHE_FILE_NAME).withLock {
+            val list = mutableListOf<Pair<Uri, String>>()
+            try {
+                val file = File(baseDir, CACHE_FILE_NAME)
+                if (file.exists()) {
+                    file.bufferedReader().useLines { lines ->
+                        lines.forEach { line ->
+                            val parts = line.split("|", limit = 2)
+                            if (parts.size == 2) {
+                                list.add(parts[0].toUri() to parts[1])
+                            }
                         }
                     }
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading cache: ${e.message}")
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error loading cache: ${e.message}")
+            list
         }
-        list
     }
 
     suspend fun refreshCache(uri: Uri): List<Pair<Uri, String>> = withContext(Dispatchers.IO) {
@@ -139,26 +182,31 @@ class WallpaperRepository(val context: Context) {
 
             val currentModified = getDirectoryLastModified(uri)
             saveCacheToFile(newList)
-            prefs.edit { putLong("last_modified", currentModified) }
+            dataStore.edit { preferences ->
+                preferences[PreferenceKeys.LAST_MODIFIED] = currentModified
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error refreshing cache: ${e.message}")
         }
         newList
     }
 
-    private fun saveCacheToFile(list: List<Pair<Uri, String>>) {
-        try {
-            val file = File(baseDir, CACHE_FILE_NAME)
-            file.bufferedWriter().use { writer ->
-                list.forEach { (uri, name) ->
-                    writer.write("${uri}|${name}")
-                    writer.newLine()
+    private suspend fun saveCacheToFile(list: List<Pair<Uri, String>>) =
+        withContext(Dispatchers.IO) {
+            mutexFor(CACHE_FILE_NAME).withLock {
+                try {
+                    val file = File(baseDir, CACHE_FILE_NAME)
+                    file.bufferedWriter().use { writer ->
+                        list.forEach { (uri, name) ->
+                            writer.write("${uri}|${name}")
+                            writer.newLine()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error saving cache to file: ${e.message}")
                 }
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error saving cache to file: ${e.message}")
         }
-    }
 
     suspend fun getImageResolution(uri: Uri): String = withContext(Dispatchers.IO) {
         var size = "Unknown"
@@ -189,7 +237,7 @@ class WallpaperRepository(val context: Context) {
         sizeMb
     }
 
-    fun isManagingLockScreen(): Boolean {
+    suspend fun isManagingLockScreen(): Boolean = withContext(Dispatchers.IO) {
         val wm = WallpaperManager.getInstance(context)
         val packageName = context.packageName
         val serviceName = ScrollingWallpaperService::class.java.name
@@ -212,13 +260,13 @@ class WallpaperRepository(val context: Context) {
         // We manage the lock screen if:
         // - It's explicitly set to our Live Wallpaper service.
         // - OR it's inherited from the system screen AND our service is set on the system screen.
-        return isOurLock || (isOurSystem && !hasSeparateLockWallpaper)
+        isOurLock || (isOurSystem && !hasSeparateLockWallpaper)
     }
 
-    fun updateCurrentWallpaper(uri: Uri, name: String) {
-        prefs.edit {
-            putString("current_wallpaper_uri", uri.toString())
-            putString("current_wallpaper_name", name)
+    suspend fun updateCurrentWallpaper(uri: Uri, name: String) {
+        dataStore.edit { preferences ->
+            preferences[PreferenceKeys.CURRENT_WALLPAPER_URI] = uri.toString()
+            preferences[PreferenceKeys.CURRENT_WALLPAPER_NAME] = name
         }
 
         val updateIntent = Intent("com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER")
@@ -238,15 +286,15 @@ class WallpaperRepository(val context: Context) {
         }
     }
 
-    fun saveSeenImages(seenNames: Set<String>) {
+    suspend fun saveSeenImages(seenNames: Set<String>) {
         saveSetToFile(SEEN_IMAGES_FILE, seenNames)
     }
 
-    fun saveFavorites(favNames: Set<String>) {
+    suspend fun saveFavorites(favNames: Set<String>) {
         saveSetToFile(FAVORITES_FILE, favNames)
     }
 
-    fun saveToRemoveImages(names: Set<String>) {
+    suspend fun saveToRemoveImages(names: Set<String>) {
         saveSetToFile(TO_REMOVE_FILE, names)
     }
 }

@@ -2,8 +2,10 @@ package com.cheshire.wallpaperswitcher.ui.viewmodel
 
 import android.content.Context
 import android.net.Uri
+import androidx.datastore.preferences.core.edit
 import androidx.test.core.app.ApplicationProvider
 import com.cheshire.wallpaperswitcher.data.WallpaperRepository
+import com.cheshire.wallpaperswitcher.data.dataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.*
@@ -25,14 +27,14 @@ class WallpaperViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before
-    fun setup() {
+    fun setup() = runTest {
         Dispatchers.setMain(testDispatcher)
         context = ApplicationProvider.getApplicationContext()
         repository = WallpaperRepository(context)
 
-        // Clear SharedPreferences and files
-        context.getSharedPreferences("WallpaperPrefs", Context.MODE_PRIVATE).edit().clear().commit()
-        val baseDir = context.externalCacheDir ?: context.cacheDir
+        // Clear DataStore and files
+        context.dataStore.edit { it.clear() }
+        val baseDir = repository.baseDir
         baseDir.listFiles()?.forEach { it.delete() }
     }
 
@@ -49,6 +51,7 @@ class WallpaperViewModelTest {
         repository.saveFavorites(setOf("fav.jpg"))
 
         viewModel = WallpaperViewModel(repository)
+        advanceUntilIdle()
 
 
         assertEquals(folderUri, viewModel.folderUri)
@@ -59,10 +62,12 @@ class WallpaperViewModelTest {
     @Test
     fun `updateFolderUri saves to repository`() = runTest {
         viewModel = WallpaperViewModel(repository)
+        advanceUntilIdle()
 
         val newUri = Uri.parse("content://new_folder")
 
         viewModel.updateFolderUri(newUri)
+        advanceUntilIdle()
 
 
         assertEquals(newUri, repository.getFolderUri())
@@ -90,6 +95,7 @@ class WallpaperViewModelTest {
     fun `toggleToRemove updates state and repository`() = runTest {
         repository.updateCurrentWallpaper(Uri.parse("content://bad"), "bad_img.jpg")
         viewModel = WallpaperViewModel(repository)
+        advanceUntilIdle()
 
 
         viewModel.toggleToRemove()
@@ -105,6 +111,7 @@ class WallpaperViewModelTest {
     fun `resetSeen clears state and repository`() = runTest {
         repository.saveSeenImages(setOf("seen.jpg"))
         viewModel = WallpaperViewModel(repository)
+        advanceUntilIdle()
 
 
         viewModel.resetSeen()
