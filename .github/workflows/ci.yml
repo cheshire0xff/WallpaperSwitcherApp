@@ -43,10 +43,5 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle
 
-      # Run Spotless check (uses .editorconfig + Gradle Spotless config)
-      - name: Spotless Check
-        run: ./gradlew spotlessCheck
-
-      # Build the project and run unit tests
-      - name: Build & Run Tests
-        run: ./gradlew clean build test
+      - name: Check formatting, build, and run tests
+        run: ./gradlew spotlessCheck assembleDebug testDebugUnitTest
