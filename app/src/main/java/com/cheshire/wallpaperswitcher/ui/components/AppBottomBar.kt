@@ -3,9 +3,8 @@ package com.cheshire.wallpaperswitcher.ui.components
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -41,11 +40,10 @@ fun AppBottomBar(
                 enabled = viewModel.cachedImages.isNotEmpty(),
             )
             NavigationBarItem(
-                icon = { Icon(Icons.Default.Favorite, contentDescription = "Favorites") },
-                label = { Text("Favs") },
-                selected = currentScreen == Screen.Favorites,
-                onClick = { onNavigate(Screen.Favorites) },
-                enabled = viewModel.favoriteNames.isNotEmpty(),
+                icon = { Icon(Icons.Default.PhotoLibrary, contentDescription = "Library") },
+                label = { Text("Library") },
+                selected = currentScreen == Screen.Library,
+                onClick = { onNavigate(Screen.Library) },
             )
             NavigationBarItem(
                 icon = { Icon(Icons.Default.History, contentDescription = "History") },
@@ -53,13 +51,6 @@ fun AppBottomBar(
                 selected = currentScreen == Screen.History,
                 onClick = { onNavigate(Screen.History) },
                 enabled = viewModel.seenImageNames.isNotEmpty(),
-            )
-            NavigationBarItem(
-                icon = { Icon(Icons.Default.DeleteSweep, contentDescription = "To Remove") },
-                label = { Text("ToRemove") },
-                selected = currentScreen == Screen.ToRemove,
-                onClick = { onNavigate(Screen.ToRemove) },
-                enabled = viewModel.toRemoveNames.isNotEmpty(),
             )
         }
     }

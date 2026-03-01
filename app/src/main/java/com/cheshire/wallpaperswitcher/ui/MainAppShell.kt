@@ -32,6 +32,7 @@ import com.cheshire.wallpaperswitcher.ui.components.AppTopBar
 import com.cheshire.wallpaperswitcher.ui.components.InformationDialog
 import com.cheshire.wallpaperswitcher.ui.screens.DashboardScreen
 import com.cheshire.wallpaperswitcher.ui.screens.ImageGridScreen
+import com.cheshire.wallpaperswitcher.ui.screens.LibraryScreen
 import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
 
 /**
@@ -42,9 +43,8 @@ enum class Screen(
 ) {
     Dashboard("Wallpaper Switcher"),
     Queue("Upcoming Queue"),
-    Favorites("Favorites"),
+    Library("Library"),
     History("History"),
-    ToRemove("To Remove"),
 }
 
 @Composable
@@ -179,9 +179,8 @@ fun NavigationHost(
             )
         }
 
-        Screen.Favorites -> {
-            ImageGridScreen(
-                images = viewModel.favoriteImages,
+        Screen.Library -> {
+            LibraryScreen(
                 viewModel = viewModel,
                 onBack = { onNavigate(Screen.Dashboard) },
             )
@@ -190,14 +189,6 @@ fun NavigationHost(
         Screen.History -> {
             ImageGridScreen(
                 images = viewModel.historyImages,
-                viewModel = viewModel,
-                onBack = { onNavigate(Screen.Dashboard) },
-            )
-        }
-
-        Screen.ToRemove -> {
-            ImageGridScreen(
-                images = viewModel.toRemoveImages,
                 viewModel = viewModel,
                 onBack = { onNavigate(Screen.Dashboard) },
             )
