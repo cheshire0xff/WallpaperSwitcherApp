@@ -51,9 +51,11 @@ fun LibraryScreen(
         when (selectedTabIndex) {
             0 -> {
                 ImageGridScreen(
-                    images = viewModel.cachedImages,
+                    images = viewModel.allImagesSorted,
                     viewModel = viewModel,
                     onBack = onBack,
+                    currentSortOption = viewModel.allImagesSortOption,
+                    onSortOptionChange = { viewModel.updateAllImagesSortOption(it) },
                 )
             }
 
@@ -62,6 +64,8 @@ fun LibraryScreen(
                     images = viewModel.favoriteImages,
                     viewModel = viewModel,
                     onBack = onBack,
+                    currentSortOption = viewModel.favoritesSortOption,
+                    onSortOptionChange = { viewModel.updateFavoritesSortOption(it) },
                 )
             }
 
@@ -70,6 +74,8 @@ fun LibraryScreen(
                     images = viewModel.toRemoveImages,
                     viewModel = viewModel,
                     onBack = onBack,
+                    currentSortOption = viewModel.toRemoveSortOption,
+                    onSortOptionChange = { viewModel.updateToRemoveSortOption(it) },
                 )
             }
         }

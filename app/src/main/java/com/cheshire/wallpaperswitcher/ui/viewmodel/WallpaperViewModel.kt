@@ -21,6 +21,15 @@ data class WallpaperMetadata(
     val dimensions: String = "0x0",
 )
 
+enum class SortOption(
+    val displayName: String,
+) {
+    NAME_ASC("Name (A-Z)"),
+    NAME_DESC("Name (Z-A)"),
+    TIME_ADDED_ASC("Oldest First"),
+    TIME_ADDED_DESC("Newest First"),
+}
+
 @HiltViewModel
 class WallpaperViewModel
     @Inject
@@ -54,22 +63,43 @@ class WallpaperViewModel
         var libraryTabIndex by mutableIntStateOf(0)
             private set
 
+        var allImagesSortOption by mutableStateOf(SortOption.TIME_ADDED_DESC)
+            private set
+        var favoritesSortOption by mutableStateOf(SortOption.TIME_ADDED_DESC)
+            private set
+        var historySortOption by mutableStateOf(SortOption.TIME_ADDED_DESC)
+            private set
+        var toRemoveSortOption by mutableStateOf(SortOption.TIME_ADDED_DESC)
+            private set
+
         // Map of filename -> Uri for quick lookup, derived from cachedImages
         private val imageMap by derivedStateOf {
             cachedImages.associate { it.second to it.first }
         }
 
+        private fun List<Pair<Uri, String>>.applySort(option: SortOption): List<Pair<Uri, String>> =
+            when (option) {
+                SortOption.NAME_ASC -> sortedBy { it.second }
+                SortOption.NAME_DESC -> sortedByDescending { it.second }
+                SortOption.TIME_ADDED_ASC -> this
+                SortOption.TIME_ADDED_DESC -> reversed()
+            }
+
+        val allImagesSorted by derivedStateOf {
+            cachedImages.applySort(allImagesSortOption)
+        }
+
         // Derived states for library screens to avoid re-mapping on every recomposition
         val favoriteImages by derivedStateOf {
-            favoriteNames.mapNotNull { name -> imageMap[name]?.let { it to name } }
+            favoriteNames.mapNotNull { name -> imageMap[name]?.let { it to name } }.applySort(favoritesSortOption)
         }
 
         val historyImages by derivedStateOf {
-            seenImageNames.mapNotNull { name -> imageMap[name]?.let { it to name } }.reversed()
+            seenImageNames.mapNotNull { name -> imageMap[name]?.let { it to name } }.applySort(historySortOption)
         }
 
         val toRemoveImages by derivedStateOf {
-            toRemoveNames.mapNotNull { name -> imageMap[name]?.let { it to name } }
+            toRemoveNames.mapNotNull { name -> imageMap[name]?.let { it to name } }.applySort(toRemoveSortOption)
         }
 
         // Exposed for the images screen
@@ -254,6 +284,22 @@ class WallpaperViewModel
             viewModelScope.launch {
                 repository.saveLibraryTabIndex(index)
             }
+        }
+
+        fun updateAllImagesSortOption(option: SortOption) {
+            allImagesSortOption = option
+        }
+
+        fun updateFavoritesSortOption(option: SortOption) {
+            favoritesSortOption = option
+        }
+
+        fun updateHistorySortOption(option: SortOption) {
+            historySortOption = option
+        }
+
+        fun updateToRemoveSortOption(option: SortOption) {
+            toRemoveSortOption = option
         }
     }
 

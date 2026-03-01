@@ -176,6 +176,7 @@ fun NavigationHost(
                 images = viewModel.shuffledQueue,
                 viewModel = viewModel,
                 onBack = { onNavigate(Screen.Dashboard) },
+                showSort = false,
             )
         }
 

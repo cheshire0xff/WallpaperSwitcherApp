@@ -14,10 +14,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -33,9 +36,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -68,6 +75,7 @@ import coil.request.CachePolicy
 import coil.request.ImageRequest
 import coil.size.Precision
 import com.cheshire.wallpaperswitcher.ui.components.EnlargedImageDialog
+import com.cheshire.wallpaperswitcher.ui.viewmodel.SortOption
 import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
 import com.cheshire.wallpaperswitcher.util.DLog
 import kotlinx.coroutines.launch
@@ -83,6 +91,9 @@ fun ImageGridScreen(
     images: List<Pair<Uri, String>>,
     viewModel: WallpaperViewModel,
     onBack: () -> Unit,
+    showSort: Boolean = true,
+    currentSortOption: SortOption = SortOption.TIME_ADDED_DESC,
+    onSortOptionChange: (SortOption) -> Unit = {},
 ) {
     var selectedImage by remember { mutableStateOf<Pair<Uri, String>?>(null) }
     val gridState = rememberLazyGridState()
@@ -110,6 +121,8 @@ fun ImageGridScreen(
     })
 
     Column(modifier = Modifier.fillMaxSize()) {
+        var showSortMenu by remember { mutableStateOf(false) }
+
         SearchBar(
             modifier =
                 Modifier
@@ -126,9 +139,41 @@ fun ImageGridScreen(
                     placeholder = { Text("Search wallpapers...") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Close, contentDescription = null)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Close, contentDescription = null)
+                                }
+                            }
+                            if (showSort && !isSearchActive) {
+                                Box {
+                                    IconButton(onClick = { showSortMenu = true }) {
+                                        Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort")
+                                    }
+                                    DropdownMenu(
+                                        expanded = showSortMenu,
+                                        onDismissRequest = { showSortMenu = false },
+                                    ) {
+                                        SortOption.entries.forEach { option ->
+                                            DropdownMenuItem(
+                                                text = { Text(option.displayName) },
+                                                onClick = {
+                                                    onSortOptionChange(option)
+                                                    showSortMenu = false
+                                                },
+                                                trailingIcon = {
+                                                    if (option == currentSortOption) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Check,
+                                                            contentDescription = "Selected",
+                                                            modifier = Modifier.size(18.dp),
+                                                        )
+                                                    }
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     },
