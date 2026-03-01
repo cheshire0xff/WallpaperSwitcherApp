@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridItemInfo
 import androidx.compose.foundation.lazy.grid.LazyGridLayoutInfo
@@ -38,11 +39,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -94,6 +97,8 @@ fun ImageGridScreen(
     showSort: Boolean = true,
     currentSortOption: SortOption = SortOption.TIME_ADDED_DESC,
     onSortOptionChange: (SortOption) -> Unit = {},
+    showHideToRemoveOption: Boolean = true,
+    initialHideToRemove: Boolean = true,
 ) {
     var selectedImage by remember { mutableStateOf<Pair<Uri, String>?>(null) }
     val gridState = rememberLazyGridState()
@@ -103,18 +108,27 @@ fun ImageGridScreen(
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
 
+    // To remove filtering state
+    var hideToRemove by remember { mutableStateOf(initialHideToRemove) }
+
     val filteredImages =
-        remember(images, searchQuery) {
-            if (searchQuery.isBlank()) {
-                images
+        remember(images, searchQuery, hideToRemove, viewModel.toRemoveNames) {
+            val base =
+                if (searchQuery.isBlank()) {
+                    images
+                } else {
+                    images.filter { it.second.contains(searchQuery, ignoreCase = true) }
+                }
+
+            if (hideToRemove) {
+                base.filter { it.second !in viewModel.toRemoveNames }
             } else {
-                images.filter { it.second.contains(searchQuery, ignoreCase = true) }
+                base
             }
         }
 
-    // Scroll to top when sort option changes.
-    // LaunchedEffect ensures this runs AFTER the composition that reflects the new sort.
-    LaunchedEffect(currentSortOption) {
+    // Scroll to top when sort option changes or filter toggles.
+    LaunchedEffect(currentSortOption, hideToRemove) {
         gridState.scrollToItem(0)
     }
 
@@ -136,7 +150,7 @@ fun ImageGridScreen(
                 Modifier
                     .fillMaxWidth()
                     .padding(horizontal = if (isSearchActive) 0.dp else 16.dp)
-                    .padding(bottom = if (isSearchActive) 0.dp else 8.dp),
+                    .padding(bottom = if (isSearchActive) 0.dp else 4.dp),
             inputField = {
                 SearchBarDefaults.InputField(
                     query = searchQuery,
@@ -171,7 +185,6 @@ fun ImageGridScreen(
                                                 onClick = {
                                                     onSortOptionChange(option)
                                                     showSortMenu = false
-                                                    // Scroll is handled by LaunchedEffect(currentSortOption)
                                                 },
                                                 trailingIcon = {
                                                     if (option == currentSortOption) {
@@ -232,6 +245,31 @@ fun ImageGridScreen(
                                 isSearchActive = false
                                 scope.launch { gridState.scrollToItem(0) }
                             },
+                    )
+                }
+            }
+        }
+
+        // Filter chips row
+        if (showHideToRemoveOption && !isSearchActive) {
+            LazyRow(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                item {
+                    FilterChip(
+                        selected = hideToRemove,
+                        onClick = { hideToRemove = !hideToRemove },
+                        label = { Text("Hide Removed") },
+                        leadingIcon = {
+                            if (hideToRemove) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        },
                     )
                 }
             }

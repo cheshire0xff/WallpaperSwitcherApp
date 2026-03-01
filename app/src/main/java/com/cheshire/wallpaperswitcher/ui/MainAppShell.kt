@@ -177,6 +177,7 @@ fun NavigationHost(
                 viewModel = viewModel,
                 onBack = { onNavigate(Screen.Dashboard) },
                 showSort = false,
+                showHideToRemoveOption = false,
             )
         }
 
@@ -192,6 +193,7 @@ fun NavigationHost(
                 images = viewModel.historyImages,
                 viewModel = viewModel,
                 onBack = { onNavigate(Screen.Dashboard) },
+                initialHideToRemove = false,
             )
         }
     }

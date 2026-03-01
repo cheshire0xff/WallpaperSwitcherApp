@@ -58,6 +58,7 @@ fun LibraryScreen(
                     onBack = onBack,
                     currentSortOption = viewModel.allImagesSortOption,
                     onSortOptionChange = { viewModel.updateAllImagesSortOption(it) },
+                    initialHideToRemove = true,
                 )
             }
 
@@ -68,6 +69,7 @@ fun LibraryScreen(
                     onBack = onBack,
                     currentSortOption = viewModel.favoritesSortOption,
                     onSortOptionChange = { viewModel.updateFavoritesSortOption(it) },
+                    initialHideToRemove = true,
                 )
             }
 
@@ -78,6 +80,8 @@ fun LibraryScreen(
                     onBack = onBack,
                     currentSortOption = viewModel.toRemoveSortOption,
                     onSortOptionChange = { viewModel.updateToRemoveSortOption(it) },
+                    showHideToRemoveOption = false,
+                    initialHideToRemove = false,
                 )
             }
         }
