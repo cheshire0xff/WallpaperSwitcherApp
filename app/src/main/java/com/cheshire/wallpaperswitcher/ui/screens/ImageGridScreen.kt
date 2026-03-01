@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -52,6 +51,7 @@ import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -97,6 +97,7 @@ fun ImageGridScreen(
 ) {
     var selectedImage by remember { mutableStateOf<Pair<Uri, String>?>(null) }
     val gridState = rememberLazyGridState()
+    val scope = rememberCoroutineScope()
 
     // Search state
     var searchQuery by remember { mutableStateOf("") }
@@ -110,6 +111,12 @@ fun ImageGridScreen(
                 images.filter { it.second.contains(searchQuery, ignoreCase = true) }
             }
         }
+
+    // Scroll to top when sort option changes.
+    // LaunchedEffect ensures this runs AFTER the composition that reflects the new sort.
+    LaunchedEffect(currentSortOption) {
+        gridState.scrollToItem(0)
+    }
 
     // Handle back button: collapse search first if active
     BackHandler(onBack = {
@@ -134,7 +141,10 @@ fun ImageGridScreen(
                 SearchBarDefaults.InputField(
                     query = searchQuery,
                     onQueryChange = { searchQuery = it },
-                    onSearch = { isSearchActive = false },
+                    onSearch = {
+                        isSearchActive = false
+                        scope.launch { gridState.scrollToItem(0) }
+                    },
                     expanded = isSearchActive,
                     onExpandedChange = { isSearchActive = it },
                     placeholder = { Text("Search wallpapers...") },
@@ -161,6 +171,7 @@ fun ImageGridScreen(
                                                 onClick = {
                                                     onSortOptionChange(option)
                                                     showSortMenu = false
+                                                    // Scroll is handled by LaunchedEffect(currentSortOption)
                                                 },
                                                 trailingIcon = {
                                                     if (option == currentSortOption) {
@@ -219,6 +230,7 @@ fun ImageGridScreen(
                             Modifier.clickable {
                                 selectedImage = imagePair
                                 isSearchActive = false
+                                scope.launch { gridState.scrollToItem(0) }
                             },
                     )
                 }
