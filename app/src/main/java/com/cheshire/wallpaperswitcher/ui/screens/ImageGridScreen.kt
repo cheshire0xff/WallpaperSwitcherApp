@@ -40,7 +40,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.DropdownMenu
@@ -143,8 +142,6 @@ fun ImageGridScreen(
     })
 
     Column(modifier = Modifier.fillMaxSize()) {
-        var showSortMenu by remember { mutableStateOf(false) }
-
         SearchBar(
             windowInsets = WindowInsets(top = 0.dp),
             modifier =
@@ -165,43 +162,14 @@ fun ImageGridScreen(
                     placeholder = { Text("Search wallpapers...") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     trailingIcon = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { searchQuery = "" }) {
-                                    Icon(Icons.Default.Close, contentDescription = null)
-                                }
-                            }
-                            if (showSort && !isSearchActive) {
-                                Box {
-                                    IconButton(onClick = { showSortMenu = true }) {
-                                        Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort")
-                                    }
-                                    DropdownMenu(
-                                        expanded = showSortMenu,
-                                        onDismissRequest = { showSortMenu = false },
-                                    ) {
-                                        SortOption.entries.forEach { option ->
-                                            DropdownMenuItem(
-                                                text = { Text(option.displayName) },
-                                                onClick = {
-                                                    onSortOptionChange(option)
-                                                    showSortMenu = false
-                                                },
-                                                trailingIcon = {
-                                                    if (option == currentSortOption) {
-                                                        Icon(
-                                                            imageVector = Icons.Default.Check,
-                                                            contentDescription = "Selected",
-                                                            modifier = Modifier.size(18.dp),
-                                                        )
-                                                    }
-                                                },
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        SearchBarTrailingIcons(
+                            searchQuery = searchQuery,
+                            isSearchActive = isSearchActive,
+                            showSort = showSort,
+                            currentSortOption = currentSortOption,
+                            onSortOptionChange = onSortOptionChange,
+                            onClearSearch = { searchQuery = "" },
+                        )
                     },
                 )
             },
@@ -315,6 +283,7 @@ fun ImageGridScreen(
 
                 VerticalGridScrollbar(
                     gridState = gridState,
+                    thumbSize = 40.dp,
                     modifier =
                         Modifier
                             .align(Alignment.CenterEnd)
@@ -335,6 +304,56 @@ fun ImageGridScreen(
                 onBack()
             },
         )
+    }
+}
+
+@Composable
+private fun SearchBarTrailingIcons(
+    searchQuery: String,
+    isSearchActive: Boolean,
+    showSort: Boolean,
+    currentSortOption: SortOption,
+    onSortOptionChange: (SortOption) -> Unit,
+    onClearSearch: () -> Unit,
+) {
+    var showSortMenu by remember { mutableStateOf(false) }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (searchQuery.isNotEmpty()) {
+            IconButton(onClick = onClearSearch) {
+                Icon(Icons.Default.Close, contentDescription = "Clear search")
+            }
+        }
+        if (showSort && !isSearchActive) {
+            Box {
+                IconButton(onClick = { showSortMenu = true }) {
+                    Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort")
+                }
+                DropdownMenu(
+                    expanded = showSortMenu,
+                    onDismissRequest = { showSortMenu = false },
+                ) {
+                    SortOption.entries.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option.displayName) },
+                            onClick = {
+                                onSortOptionChange(option)
+                                showSortMenu = false
+                            },
+                            trailingIcon = {
+                                if (option == currentSortOption) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Selected",
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -393,6 +412,7 @@ private fun WallpaperGrid(
 @Composable
 private fun VerticalGridScrollbar(
     gridState: LazyGridState,
+    thumbSize: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -410,8 +430,6 @@ private fun VerticalGridScrollbar(
     )
 
     if (scrollbarAlpha <= 0f && !isDragging) return
-
-    val thumbSize = 40.dp
 
     BoxWithConstraints(
         modifier =
@@ -443,67 +461,74 @@ private fun VerticalGridScrollbar(
 
         var dragOffsetPx by remember { mutableFloatStateOf(0f) }
 
-        Box(
-            modifier =
-                Modifier
-                    .size(thumbSize)
-                    .align(Alignment.TopCenter)
-                    .graphicsLayer {
-                        translationY = if (isDragging) dragOffsetPx else scrollPosition * availableTrack
-                    }.clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.8f))
-                    .pointerInput(trackHeightPx) {
-                        detectDragGestures(
-                            onDragStart = {
-                                isDragging = true
-                                dragOffsetPx = scrollPosition * availableTrack
-                            },
-                            onDragEnd = { isDragging = false },
-                            onDragCancel = { isDragging = false },
-                            onDrag = { change, dragAmount ->
-                                change.consume()
-                                dragOffsetPx =
-                                    (dragOffsetPx + dragAmount.y).coerceIn(0f, availableTrack)
+        VerticalGridScrollbarThumb(
+            thumbSize = thumbSize,
+            isDragging = isDragging,
+            dragOffsetPx = dragOffsetPx,
+            scrollPosition = scrollPosition,
+            availableTrack = availableTrack,
+            onDragStart = {
+                isDragging = true
+                dragOffsetPx = scrollPosition * availableTrack
+            },
+            onDragEnd = { isDragging = false },
+            onDragCancel = { isDragging = false },
+            onDrag = { dragAmountY ->
+                dragOffsetPx = (dragOffsetPx + dragAmountY).coerceIn(0f, availableTrack)
 
-                                val layoutInfo = gridState.layoutInfo
-                                val layoutDetails =
-                                    calculateLayoutDetails(layoutInfo)
-                                        ?: return@detectDragGestures
+                val layoutInfo = gridState.layoutInfo
+                val layoutDetails = calculateLayoutDetails(layoutInfo) ?: return@VerticalGridScrollbarThumb
 
-                                val newFraction =
-                                    if (availableTrack > 0) {
-                                        dragOffsetPx / availableTrack
-                                    } else {
-                                        0f
-                                    }
-                                val gridPosition = layoutDetails.calcPositionInGrid(newFraction)
-                                DLog.d(
-                                    "VerticalGridScrollbar",
-                                    "dragOffsetPx: $dragOffsetPx/$availableTrack " +
-                                        "fraction: $newFraction " +
-                                        "targetScrollPx: ${gridPosition.gridPositionPx}/${layoutDetails.maxScrollPositionPx} " +
-                                        "targetItem: ${gridPosition.itemIndex}/${layoutDetails.totalItems} " +
-                                        "targetOffset: ${gridPosition.itemIndex}",
-                                )
+                val newFraction = if (availableTrack > 0) dragOffsetPx / availableTrack else 0f
+                val gridPosition = layoutDetails.calcPositionInGrid(newFraction)
 
-                                coroutineScope.launch {
-                                    gridState.scrollToItem(
-                                        gridPosition.itemIndex,
-                                        gridPosition.itemOffset,
-                                    )
-                                }
-                            },
-                        )
-                    },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Default.UnfoldMore,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(24.dp),
-            )
-        }
+                coroutineScope.launch {
+                    gridState.scrollToItem(gridPosition.itemIndex, gridPosition.itemOffset)
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun VerticalGridScrollbarThumb(
+    thumbSize: androidx.compose.ui.unit.Dp,
+    isDragging: Boolean,
+    dragOffsetPx: Float,
+    scrollPosition: Float,
+    availableTrack: Float,
+    onDragStart: () -> Unit,
+    onDragEnd: () -> Unit,
+    onDragCancel: () -> Unit,
+    onDrag: (Float) -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .size(thumbSize)
+                .graphicsLayer {
+                    translationY = if (isDragging) dragOffsetPx else scrollPosition * availableTrack
+                }.clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.8f))
+                .pointerInput(availableTrack) {
+                    detectDragGestures(
+                        onDragStart = { onDragStart() },
+                        onDragEnd = { onDragEnd() },
+                        onDragCancel = { onDragCancel() },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            onDrag(dragAmount.y)
+                        },
+                    )
+                },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Default.UnfoldMore,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(24.dp),
+        )
     }
 }
 
