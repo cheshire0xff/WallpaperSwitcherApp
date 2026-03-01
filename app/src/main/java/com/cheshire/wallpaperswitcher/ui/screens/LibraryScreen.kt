@@ -6,9 +6,11 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
@@ -18,8 +20,22 @@ fun LibraryScreen(
     viewModel: WallpaperViewModel,
     onBack: () -> Unit,
 ) {
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
+    // Holds the currently selected tab index for the UI.
+    // Initialized from the ViewModel when the Library screen enters composition.
+    // Updating this variable triggers recomposition, so the TabRow will reflect the latest selected tab.
+    var selectedTabIndex by remember { mutableIntStateOf(viewModel.libraryTabIndex) }
+
+    // Creates a stable reference to the latest selectedTabIndex for use in side effects (e.g., onDispose).
+    // Unlike selectedTabIndex, changing this value does NOT trigger recomposition.
+    // Ensures that callbacks always see the most recent tab, even if the user switched tabs rapidly.
+    val currentTabIndex by rememberUpdatedState(selectedTabIndex)
     val tabs = listOf("Favorites", "To Remove")
+
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.saveLibraryTabIndex(currentTabIndex)
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         PrimaryTabRow(selectedTabIndex = selectedTabIndex) {

@@ -3,6 +3,7 @@ package com.cheshire.wallpaperswitcher.ui.viewmodel
 import android.net.Uri
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -50,6 +51,9 @@ class WallpaperViewModel
         var managesLockScreen by mutableStateOf(false)
             private set
 
+        var libraryTabIndex by mutableIntStateOf(0)
+            private set
+
         // Map of filename -> Uri for quick lookup, derived from cachedImages
         private val imageMap by derivedStateOf {
             cachedImages.associate { it.second to it.first }
@@ -83,6 +87,7 @@ class WallpaperViewModel
                 seenImageNames = repository.getSeenImages()
                 favoriteNames = repository.getFavoriteImages()
                 toRemoveNames = repository.getToRemoveImages()
+                libraryTabIndex = repository.getLibraryTabIndex().first()
 
                 folderUri?.let { refreshCache() }
                 currentWallpaperUri?.let { updateMetadata(it) }
@@ -242,6 +247,13 @@ class WallpaperViewModel
             }
             playlist.updateSeenHistory(emptySet())
             shuffledQueue = playlist.getQueue()
+        }
+
+        fun saveLibraryTabIndex(index: Int) {
+            libraryTabIndex = index
+            viewModelScope.launch {
+                repository.saveLibraryTabIndex(index)
+            }
         }
     }
 

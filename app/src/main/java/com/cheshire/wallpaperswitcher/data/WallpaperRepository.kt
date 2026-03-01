@@ -12,6 +12,7 @@ import androidx.core.net.toUri
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.cheshire.wallpaperswitcher.service.ScrollingWallpaperService
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -53,6 +54,7 @@ class WallpaperRepository
             val FOLDER_URI = stringPreferencesKey("folder_uri")
             val CURRENT_WALLPAPER_NAME = stringPreferencesKey("current_wallpaper_name")
             val CURRENT_WALLPAPER_URI = stringPreferencesKey("current_wallpaper_uri")
+            val LAST_LIBRARY_TAB = intPreferencesKey("last_library_tab")
         }
 
         private val fileMutexes = ConcurrentHashMap<String, Mutex>()
@@ -87,6 +89,16 @@ class WallpaperRepository
         fun getCurrentWallpaperUri(): Flow<Uri?> =
             dataStore.data
                 .map { preferences -> preferences[PreferenceKeys.CURRENT_WALLPAPER_URI]?.toUri() }
+
+        fun getLibraryTabIndex(): Flow<Int> =
+            dataStore.data
+                .map { preferences -> preferences[PreferenceKeys.LAST_LIBRARY_TAB] ?: 0 }
+
+        suspend fun saveLibraryTabIndex(index: Int) {
+            dataStore.edit { preferences ->
+                preferences[PreferenceKeys.LAST_LIBRARY_TAB] = index
+            }
+        }
 
         private suspend fun readSetFromFile(fileName: String): Set<String> =
             withContext(ioDispatcher) {
