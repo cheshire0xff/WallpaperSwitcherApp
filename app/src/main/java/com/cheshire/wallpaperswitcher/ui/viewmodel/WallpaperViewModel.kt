@@ -162,7 +162,7 @@ class WallpaperViewModel
                     }
 
                 // Sync the playlist with the new image list and current history
-                playlist.updateData(cachedImages, seenImageNames)
+                playlist.updateData(cachedImages, seenImageNames, toRemoveNames)
                 shuffledQueue = playlist.getQueue()
 
                 if (currentWallpaperUri == null && cachedImages.isNotEmpty()) {
@@ -268,6 +268,8 @@ class WallpaperViewModel
             viewModelScope.launch {
                 repository.saveToRemoveImages(newToRemove)
             }
+            playlist.updateToRemoveNames(newToRemove)
+            shuffledQueue = playlist.getQueue()
         }
 
         fun resetSeen() {
@@ -310,6 +312,7 @@ class WallpaperViewModel
 private class WallpaperPlaylist {
     private var allImages: List<Pair<Uri, String>> = emptyList()
     private var seenNames: Set<String> = emptySet()
+    private var toRemoveNames: Set<String> = emptySet()
     private val queue = mutableListOf<Pair<Uri, String>>()
 
     /**
@@ -318,9 +321,11 @@ private class WallpaperPlaylist {
     fun updateData(
         all: List<Pair<Uri, String>>,
         seen: Set<String>,
+        toRemove: Set<String>,
     ) {
         allImages = all
         seenNames = seen
+        toRemoveNames = toRemove
         regenerateQueue()
     }
 
@@ -332,9 +337,15 @@ private class WallpaperPlaylist {
         if (seen.isEmpty()) regenerateQueue()
     }
 
+    fun updateToRemoveNames(toRemove: Set<String>) {
+        toRemoveNames = toRemove
+        // Remove any newly added 'toRemove' items from the active queue
+        queue.removeAll { it.second in toRemoveNames }
+    }
+
     private fun regenerateQueue() {
         queue.clear()
-        queue.addAll(allImages.filter { it.second !in seenNames }.shuffled())
+        queue.addAll(allImages.filter { it.second !in seenNames && it.second !in toRemoveNames }.shuffled())
     }
 
     /**

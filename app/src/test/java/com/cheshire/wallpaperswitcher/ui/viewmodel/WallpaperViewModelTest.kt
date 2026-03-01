@@ -155,6 +155,56 @@ class WallpaperViewModelTest {
         }
 
     @Test
+    fun `images marked to remove are excluded from shuffledQueue`() =
+        runTest {
+            val folderUri = baseTestUri
+            val lastModified = 1000L
+            repository.saveFolderUri(folderUri)
+            mockDirectoryLastModified(folderUri, lastModified)
+
+            // Set a current wallpaper so setInitialWallpaper doesn't consume one from the queue
+            repository.updateCurrentWallpaper(Uri.parse("content://initial"), "initial.jpg")
+
+            // Pre-fill cache with 2 images
+            val cacheFile = File(repository.baseDir, "image_cache.txt")
+            cacheFile.writeText("# dir=$folderUri\n# lastModified=$lastModified\ncontent://uri1|img1.jpg\ncontent://uri2|img2.jpg")
+
+            viewModel = WallpaperViewModel(repository)
+            waitTasks()
+
+            // Both should be in queue
+            assertEquals(2, viewModel.shuffledQueue.size)
+
+            // Mark img1.jpg as to remove
+            viewModel.toggleToRemove("img1.jpg")
+            waitTasks()
+
+            // Queue should now only contain img2.jpg
+            assertEquals(1, viewModel.shuffledQueue.size)
+            assertEquals("img2.jpg", viewModel.shuffledQueue[0].second)
+        }
+
+    @Test
+    fun `images already marked to remove are not added to shuffledQueue on init`() =
+        runTest {
+            val folderUri = baseTestUri
+            val lastModified = 1000L
+            repository.saveFolderUri(folderUri)
+            mockDirectoryLastModified(folderUri, lastModified)
+            repository.saveToRemoveImages(setOf("img1.jpg"))
+
+            val cacheFile = File(repository.baseDir, "image_cache.txt")
+            cacheFile.writeText("# dir=$folderUri\n# lastModified=$lastModified\ncontent://uri1|img1.jpg\ncontent://uri2|img2.jpg")
+
+            viewModel = WallpaperViewModel(repository)
+            waitTasks()
+
+            val allItems = viewModel.shuffledQueue.map { it.second } + listOfNotNull(viewModel.currentWallpaperName)
+            assertFalse("img1.jpg should not be in queue or current", allItems.contains("img1.jpg"))
+            assertTrue("img2.jpg should be either in queue or current", allItems.contains("img2.jpg"))
+        }
+
+    @Test
     fun `toggleFavorite updates state and repository`() =
         runTest {
             repository.updateCurrentWallpaper(Uri.parse("content://img"), "img.jpg")
