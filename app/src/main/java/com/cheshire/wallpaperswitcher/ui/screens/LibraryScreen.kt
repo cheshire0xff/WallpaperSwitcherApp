@@ -29,7 +29,7 @@ fun LibraryScreen(
     // Unlike selectedTabIndex, changing this value does NOT trigger recomposition.
     // Ensures that callbacks always see the most recent tab, even if the user switched tabs rapidly.
     val currentTabIndex by rememberUpdatedState(selectedTabIndex)
-    val tabs = listOf("Favorites", "To Remove")
+    val tabs = listOf("All Images", "Favorites", "To Remove")
 
     DisposableEffect(Unit) {
         onDispose {
@@ -51,13 +51,21 @@ fun LibraryScreen(
         when (selectedTabIndex) {
             0 -> {
                 ImageGridScreen(
-                    images = viewModel.favoriteImages,
+                    images = viewModel.cachedImages,
                     viewModel = viewModel,
                     onBack = onBack,
                 )
             }
 
             1 -> {
+                ImageGridScreen(
+                    images = viewModel.favoriteImages,
+                    viewModel = viewModel,
+                    onBack = onBack,
+                )
+            }
+
+            2 -> {
                 ImageGridScreen(
                     images = viewModel.toRemoveImages,
                     viewModel = viewModel,
