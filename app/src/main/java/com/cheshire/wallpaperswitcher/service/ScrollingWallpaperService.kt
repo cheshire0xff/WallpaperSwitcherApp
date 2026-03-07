@@ -11,7 +11,7 @@ import android.service.wallpaper.WallpaperService
 import android.util.Log
 import android.view.Choreographer
 import android.view.SurfaceHolder
-import androidx.core.net.toUri
+import com.cheshire.wallpaperswitcher.data.SetImageRequest
 import com.cheshire.wallpaperswitcher.data.WallpaperRepository
 import com.cheshire.wallpaperswitcher.util.DLog
 import dagger.hilt.android.AndroidEntryPoint
@@ -73,10 +73,11 @@ class ScrollingWallpaperService : WallpaperService() {
                     intent: Intent,
                 ) {
                     if (intent.action == "com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER") {
-                        val uriString = intent.getStringExtra("uri")
-                        DLog.i("WallpaperService", "Update received (Preview: $isPreview): $uriString")
-                        if (uriString != null) {
-                            loadWallpaper(uriString.toUri())
+                        val request = intent.getParcelableExtra("request", SetImageRequest::class.java)
+
+                        DLog.i("WallpaperService", "Update received (Preview: $isPreview): $request")
+                        request?.uri?.let {
+                            loadWallpaper(it)
                         }
                     }
                 }

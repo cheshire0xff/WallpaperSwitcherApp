@@ -323,9 +323,10 @@ class WallpaperRepository
                 preferences[PreferenceKeys.CURRENT_WALLPAPER_NAME] = name
             }
 
+            val request = SetImageRequest(uri)
             val updateIntent = Intent("com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER")
             updateIntent.setPackage(context.packageName)
-            updateIntent.putExtra("uri", uri.toString())
+            updateIntent.putExtra("request", request)
             context.sendBroadcast(updateIntent)
         }
 

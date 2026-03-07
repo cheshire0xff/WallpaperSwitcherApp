@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -79,6 +80,7 @@ fun EnlargedImageDialog(
     // Transformation state
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
+    var isFlipped by remember { mutableStateOf(false) }
     var showUI by remember { mutableStateOf(true) }
     var showUseAsMenu by remember { mutableStateOf(false) }
 
@@ -148,7 +150,7 @@ fun EnlargedImageDialog(
                             Modifier
                                 .fillMaxSize()
                                 .graphicsLayer(
-                                    scaleX = scale,
+                                    scaleX = if (isFlipped) -scale else scale,
                                     scaleY = scale,
                                     translationX = offset.x,
                                     translationY = offset.y,
@@ -228,6 +230,12 @@ fun EnlargedImageDialog(
                                     label = "Fav",
                                     onClick = { viewModel.toggleFavorite(name) },
                                     tint = if (isFavorite) MaterialTheme.colorScheme.primary else Color.White,
+                                )
+
+                                WallpaperActionButton(
+                                    icon = Icons.Default.Flip,
+                                    label = "Flip",
+                                    onClick = { isFlipped = !isFlipped },
                                 )
 
                                 Box {
