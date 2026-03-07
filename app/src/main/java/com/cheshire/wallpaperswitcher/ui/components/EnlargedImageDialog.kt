@@ -22,10 +22,11 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -79,6 +80,7 @@ fun EnlargedImageDialog(
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     var showUI by remember { mutableStateOf(true) }
+    var showUseAsMenu by remember { mutableStateOf(false) }
 
     LaunchedEffect(imagePair.first) {
         metadata = viewModel.fetchMetadata(imagePair.first)
@@ -228,25 +230,38 @@ fun EnlargedImageDialog(
                                     tint = if (isFavorite) MaterialTheme.colorScheme.primary else Color.White,
                                 )
 
-                                WallpaperActionButton(
-                                    icon = Icons.Default.Wallpaper,
-                                    label = "Home",
-                                    onClick = { onSetWallpaper() },
-                                )
-
-                                WallpaperActionButton(
-                                    icon = Icons.Default.Lock,
-                                    label = "Lock",
-                                    onClick = {
-                                        viewModel.setLockScreenOnly(imagePair.first)
-                                        Toast
-                                            .makeText(
-                                                context,
-                                                "Lock screen updated! 🔒",
-                                                Toast.LENGTH_SHORT,
-                                            ).show()
-                                    },
-                                )
+                                Box {
+                                    WallpaperActionButton(
+                                        icon = Icons.Default.Wallpaper,
+                                        label = "Use as",
+                                        onClick = { showUseAsMenu = true },
+                                    )
+                                    DropdownMenu(
+                                        expanded = showUseAsMenu,
+                                        onDismissRequest = { showUseAsMenu = false },
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("Wallpaper") },
+                                            onClick = {
+                                                onSetWallpaper()
+                                                showUseAsMenu = false
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Lock screen") },
+                                            onClick = {
+                                                viewModel.setLockScreenOnly(imagePair.first)
+                                                Toast
+                                                    .makeText(
+                                                        context,
+                                                        "Lock screen updated! 🔒",
+                                                        Toast.LENGTH_SHORT,
+                                                    ).show()
+                                                showUseAsMenu = false
+                                            },
+                                        )
+                                    }
+                                }
 
                                 WallpaperActionButton(
                                     icon = if (isToRemove) Icons.Default.DeleteSweep else Icons.Outlined.DeleteOutline,
