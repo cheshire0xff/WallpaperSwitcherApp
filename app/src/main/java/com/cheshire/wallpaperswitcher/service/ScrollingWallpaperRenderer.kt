@@ -5,6 +5,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
+import androidx.core.graphics.scale
+import kotlin.math.roundToInt
 
 /**
  * Helper class to handle wallpaper dimension calculations and matrix transformations.
@@ -12,11 +14,17 @@ import android.graphics.Paint
  */
 class ScrollingWallpaperRenderer {
     private val paint = Paint().apply { isFilterBitmap = true }
+
+    // Original bitmap.
     private var wallpaperBitmap: Bitmap? = null
+
+    // Bitmap scaled to viewport.
+    private var cachedBitmap: Bitmap? = null
 
     private val drawMatrix = Matrix()
 
     private var finalScale = 1f
+    private var finalScaledWidth = 1f
     private var maxScroll = 0f
     private var ty = 0f
     private var viewWidth = 0f
@@ -35,6 +43,7 @@ class ScrollingWallpaperRenderer {
         viewWidth = width
         viewHeight = height
         recalculate()
+        prepareCachedBitmap()
     }
 
     /**
@@ -44,9 +53,10 @@ class ScrollingWallpaperRenderer {
      * @param bitmap The new wallpaper bitmap.
      */
     fun prepareBitmap(bitmap: Bitmap) {
-        wallpaperBitmap?.recycle()
+        recycle()
         wallpaperBitmap = bitmap
         recalculate()
+        prepareCachedBitmap()
     }
 
     /**
@@ -59,12 +69,12 @@ class ScrollingWallpaperRenderer {
         canvas: Canvas,
         xOffset: Float,
     ) {
-        val bitmap = wallpaperBitmap
+        val bitmap = cachedBitmap
         if (bitmap == null) {
             canvas.drawColor(Color.BLACK)
             return
         }
-        val matrix = getTransformationMatrix(wallpaperBitmap, xOffset)
+        val matrix = getTransformationMatrix(bitmap, xOffset)
         canvas.drawColor(Color.BLACK)
         if (matrix != null) {
             canvas.drawBitmap(bitmap, matrix, paint)
@@ -75,8 +85,16 @@ class ScrollingWallpaperRenderer {
      * Recycles the current wallpaper bitmap and clears the reference.
      */
     fun recycle() {
+        maybeRecycleCachedBitmap()
         wallpaperBitmap?.recycle()
         wallpaperBitmap = null
+    }
+
+    private fun maybeRecycleCachedBitmap() {
+        if (cachedBitmap !== wallpaperBitmap) {
+            cachedBitmap?.recycle()
+        }
+        cachedBitmap = null
     }
 
     /**
@@ -92,11 +110,17 @@ class ScrollingWallpaperRenderer {
         // Scale the bitmap to fit the height of the viewport.
         finalScale = viewHeight / bitmapHeight
 
-        val finalScaledWidth = bitmapWidth * finalScale
+        finalScaledWidth = bitmapWidth * finalScale
         // Calculate the maximum amount the wallpaper can be scrolled horizontally.
         maxScroll = (finalScaledWidth - viewWidth).coerceAtLeast(0f)
         // Center the bitmap vertically if it doesn't perfectly match the height.
         ty = (viewHeight - bitmapHeight * finalScale) / 2f
+    }
+
+    private fun prepareCachedBitmap() {
+        maybeRecycleCachedBitmap()
+        cachedBitmap =
+            wallpaperBitmap?.scale(height = viewHeight.roundToInt(), width = finalScaledWidth.roundToInt())
     }
 
     /**
@@ -123,7 +147,6 @@ class ScrollingWallpaperRenderer {
             }
 
         drawMatrix.reset()
-        drawMatrix.postScale(finalScale, finalScale)
         drawMatrix.postTranslate(tx, ty)
         return drawMatrix
     }
