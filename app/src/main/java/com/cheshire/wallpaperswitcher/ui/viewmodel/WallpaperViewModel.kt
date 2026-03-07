@@ -49,6 +49,8 @@ class WallpaperViewModel
             private set
         var currentWallpaperUri by mutableStateOf<Uri?>(null)
             private set
+        var currentWallpaperFlipped by mutableStateOf(false)
+            private set
         var currentMetadata by mutableStateOf(WallpaperMetadata())
             private set
         var seenImageNames by mutableStateOf<Set<String>>(emptySet())
@@ -115,6 +117,7 @@ class WallpaperViewModel
                 folderUri = repository.getFolderUri().first()
                 currentWallpaperName = repository.getCurrentWallpaperName().first()
                 currentWallpaperUri = repository.getCurrentWallpaperUri().first()
+                currentWallpaperFlipped = repository.isCurrentWallpaperFlipped().first()
                 seenImageNames = repository.getSeenImages()
                 favoriteNames = repository.getFavoriteImages()
                 toRemoveNames = repository.getToRemoveImages()
@@ -178,9 +181,10 @@ class WallpaperViewModel
             shuffledQueue = playlist.getQueue()
             currentWallpaperUri = pair.first
             currentWallpaperName = pair.second
+            currentWallpaperFlipped = false
 
             markAsSeen(pair.second)
-            repository.updateCurrentWallpaper(pair.first, pair.second)
+            repository.updateCurrentWallpaper(pair.first, pair.second, false)
             updateMetadata(pair.first)
         }
 
@@ -193,25 +197,30 @@ class WallpaperViewModel
                         playlist.getNext() ?: return@launch
                     }
                 markAsSeen(pair.second)
-                repository.updateCurrentWallpaper(pair.first, pair.second)
+                repository.updateCurrentWallpaper(pair.first, pair.second, false)
                 updateMetadata(pair.first)
                 shuffledQueue = playlist.getQueue()
                 currentWallpaperUri = pair.first
                 currentWallpaperName = pair.second
+                currentWallpaperFlipped = false
             }
         }
 
-        fun setWallpaper(pair: Pair<Uri, String>) {
+        fun setWallpaper(
+            request: SetImageRequest,
+            name: String,
+        ) {
             viewModelScope.launch {
-                currentWallpaperUri = pair.first
-                currentWallpaperName = pair.second
+                currentWallpaperUri = request.uri
+                currentWallpaperName = name
+                currentWallpaperFlipped = request.isFlipped
 
-                markAsSeen(pair.second)
-                repository.updateCurrentWallpaper(pair.first, pair.second)
-                updateMetadata(pair.first)
+                markAsSeen(name)
+                repository.updateCurrentWallpaper(request.uri, name, request.isFlipped)
+                updateMetadata(request.uri)
 
                 // Remove from queue if it was there
-                playlist.removeFromQueue(pair.first)
+                playlist.removeFromQueue(request.uri)
                 shuffledQueue = playlist.getQueue()
             }
         }

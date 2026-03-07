@@ -13,6 +13,7 @@ import android.util.Log
 import androidx.core.net.toUri
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -56,6 +57,7 @@ class WallpaperRepository
             val FOLDER_URI = stringPreferencesKey("folder_uri")
             val CURRENT_WALLPAPER_NAME = stringPreferencesKey("current_wallpaper_name")
             val CURRENT_WALLPAPER_URI = stringPreferencesKey("current_wallpaper_uri")
+            val CURRENT_WALLPAPER_FLIPPED = booleanPreferencesKey("current_wallpaper_flipped")
             val LAST_LIBRARY_TAB = intPreferencesKey("last_library_tab")
         }
 
@@ -91,6 +93,10 @@ class WallpaperRepository
         fun getCurrentWallpaperUri(): Flow<Uri?> =
             dataStore.data
                 .map { preferences -> preferences[PreferenceKeys.CURRENT_WALLPAPER_URI]?.toUri() }
+
+        fun isCurrentWallpaperFlipped(): Flow<Boolean> =
+            dataStore.data
+                .map { preferences -> preferences[PreferenceKeys.CURRENT_WALLPAPER_FLIPPED] ?: false }
 
         fun getLibraryTabIndex(): Flow<Int> =
             dataStore.data
@@ -319,13 +325,15 @@ class WallpaperRepository
         suspend fun updateCurrentWallpaper(
             uri: Uri,
             name: String,
+            isFlipped: Boolean = false,
         ) {
             dataStore.edit { preferences ->
                 preferences[PreferenceKeys.CURRENT_WALLPAPER_URI] = uri.toString()
                 preferences[PreferenceKeys.CURRENT_WALLPAPER_NAME] = name
+                preferences[PreferenceKeys.CURRENT_WALLPAPER_FLIPPED] = isFlipped
             }
 
-            val request = SetImageRequest(uri)
+            val request = SetImageRequest(uri, isFlipped)
             val updateIntent = Intent("com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER")
             updateIntent.setPackage(context.packageName)
             updateIntent.putExtra("request", request)

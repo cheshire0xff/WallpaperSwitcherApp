@@ -69,7 +69,7 @@ fun EnlargedImageDialog(
     imagePair: Pair<Uri, String>,
     viewModel: WallpaperViewModel,
     onDismiss: () -> Unit,
-    onSetWallpaper: () -> Unit,
+    onSetWallpaper: (SetImageRequest) -> Unit,
 ) {
     val context = LocalContext.current
     var metadata by remember { mutableStateOf<WallpaperMetadata?>(null) }
@@ -252,7 +252,12 @@ fun EnlargedImageDialog(
                                         DropdownMenuItem(
                                             text = { Text("Wallpaper") },
                                             onClick = {
-                                                onSetWallpaper()
+                                                onSetWallpaper(
+                                                    SetImageRequest(
+                                                        uri = imagePair.first,
+                                                        isFlipped = isFlipped,
+                                                    ),
+                                                )
                                                 showUseAsMenu = false
                                             },
                                         )
@@ -268,7 +273,7 @@ fun EnlargedImageDialog(
                                                 Toast
                                                     .makeText(
                                                         context,
-                                                        "Lock screen updated! 🔒",
+                                                        "Lock screen updated!",
                                                         Toast.LENGTH_SHORT,
                                                     ).show()
                                                 showUseAsMenu = false

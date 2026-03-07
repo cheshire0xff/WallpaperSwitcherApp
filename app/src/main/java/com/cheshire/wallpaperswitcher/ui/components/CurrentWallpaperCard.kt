@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,6 +44,7 @@ fun CurrentWallpaperCard(
     metadata: WallpaperMetadata,
     isFavorite: Boolean,
     isToRemove: Boolean,
+    isFlipped: Boolean,
     onToggleFavorite: () -> Unit,
     onToggleToRemove: () -> Unit,
     onClick: () -> Unit,
@@ -62,7 +64,10 @@ fun CurrentWallpaperCard(
                 AsyncImage(
                     model = uri,
                     contentDescription = "Current Wallpaper",
-                    modifier = Modifier.fillMaxSize(),
+                    modifier =
+                        Modifier.fillMaxSize().graphicsLayer(
+                            scaleX = if (isFlipped) -1f else 1f,
+                        ),
                     contentScale = ContentScale.Crop,
                 )
                 // Layer 2: Action Buttons (Bottom Layer inside Thumb)

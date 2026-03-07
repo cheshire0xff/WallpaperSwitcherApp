@@ -45,8 +45,8 @@ fun DashboardScreen(
                 imagePair = uri to name,
                 viewModel = viewModel,
                 onDismiss = { showEnlarged = false },
-                onSetWallpaper = {
-                    viewModel.setWallpaper(uri to name)
+                onSetWallpaper = { request ->
+                    viewModel.setWallpaper(request, name)
                     showEnlarged = false
                 },
             )
@@ -88,6 +88,7 @@ fun DashboardScreen(
                 metadata = viewModel.currentMetadata,
                 isFavorite = viewModel.currentWallpaperName in viewModel.favoriteNames,
                 isToRemove = viewModel.currentWallpaperName in viewModel.toRemoveNames,
+                isFlipped = viewModel.currentWallpaperFlipped,
                 onToggleFavorite = { viewModel.toggleFavorite() },
                 onToggleToRemove = { viewModel.toggleToRemove() },
                 onClick = { showEnlarged = true },

@@ -298,8 +298,8 @@ fun ImageGridScreen(
             imagePair = image,
             onDismiss = { selectedImage = null },
             viewModel = viewModel,
-            onSetWallpaper = {
-                viewModel.setWallpaper(image)
+            onSetWallpaper = { request ->
+                viewModel.setWallpaper(request, image.second)
                 selectedImage = null
                 onBack()
             },
