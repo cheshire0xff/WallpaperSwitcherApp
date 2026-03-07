@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
+import com.cheshire.wallpaperswitcher.data.SetImageRequest
 import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperMetadata
 import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
 
@@ -258,7 +259,12 @@ fun EnlargedImageDialog(
                                         DropdownMenuItem(
                                             text = { Text("Lock screen") },
                                             onClick = {
-                                                viewModel.setLockScreenOnly(imagePair.first)
+                                                viewModel.setLockScreenOnly(
+                                                    SetImageRequest(
+                                                        uri = imagePair.first,
+                                                        isFlipped = isFlipped,
+                                                    ),
+                                                )
                                                 Toast
                                                     .makeText(
                                                         context,

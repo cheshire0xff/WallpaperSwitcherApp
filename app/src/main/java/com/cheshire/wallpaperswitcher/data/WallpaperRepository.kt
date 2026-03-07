@@ -3,7 +3,9 @@ package com.cheshire.wallpaperswitcher.data
 import android.app.WallpaperManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
@@ -330,12 +332,30 @@ class WallpaperRepository
             context.sendBroadcast(updateIntent)
         }
 
-        suspend fun setLockScreen(uri: Uri) =
+        suspend fun setLockScreen(request: SetImageRequest) =
             withContext(ioDispatcher) {
                 try {
                     val wallpaperManager = WallpaperManager.getInstance(context)
-                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                        wallpaperManager.setStream(inputStream, null, true, WallpaperManager.FLAG_LOCK)
+                    context.contentResolver.openInputStream(request.uri)?.use { inputStream ->
+                        if (request.isFlipped) {
+                            val original = BitmapFactory.decodeStream(inputStream)
+                            val matrix = Matrix().apply { postScale(-1f, 1f) }
+                            val flipped =
+                                Bitmap.createBitmap(
+                                    original,
+                                    0,
+                                    0,
+                                    original.width,
+                                    original.height,
+                                    matrix,
+                                    true,
+                                )
+                            wallpaperManager.setBitmap(flipped, null, true, WallpaperManager.FLAG_LOCK)
+                            original.recycle()
+                            flipped.recycle()
+                        } else {
+                            wallpaperManager.setStream(inputStream, null, true, WallpaperManager.FLAG_LOCK)
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error setting lock screen: ${e.message}")

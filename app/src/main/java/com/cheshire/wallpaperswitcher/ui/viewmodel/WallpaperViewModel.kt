@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cheshire.wallpaperswitcher.data.SetImageRequest
 import com.cheshire.wallpaperswitcher.data.WallpaperRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
@@ -215,9 +216,9 @@ class WallpaperViewModel
             }
         }
 
-        fun setLockScreenOnly(uri: Uri) {
+        fun setLockScreenOnly(request: SetImageRequest) {
             viewModelScope.launch {
-                repository.setLockScreen(uri)
+                repository.setLockScreen(request)
                 updateLockScreenStatus()
             }
         }

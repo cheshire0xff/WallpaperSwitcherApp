@@ -7,4 +7,5 @@ import kotlinx.parcelize.Parcelize
 @Parcelize
 data class SetImageRequest(
     val uri: Uri,
+    val isFlipped: Boolean = false,
 ) : Parcelable

@@ -5,7 +5,6 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
-import androidx.core.graphics.scale
 import kotlin.math.roundToInt
 
 /**
@@ -29,6 +28,7 @@ class ScrollingWallpaperRenderer {
     private var ty = 0f
     private var viewWidth = 0f
     private var viewHeight = 0f
+    private var isFlipped = false
 
     /**
      * Updates the dimensions of the viewable area (the surface) and triggers a recalculation.
@@ -52,9 +52,13 @@ class ScrollingWallpaperRenderer {
      *
      * @param bitmap The new wallpaper bitmap.
      */
-    fun prepareBitmap(bitmap: Bitmap) {
+    fun prepareBitmap(
+        bitmap: Bitmap,
+        flipped: Boolean = false,
+    ) {
         recycle()
         wallpaperBitmap = bitmap
+        isFlipped = flipped
         recalculate()
         prepareCachedBitmap()
     }
@@ -119,8 +123,22 @@ class ScrollingWallpaperRenderer {
 
     private fun prepareCachedBitmap() {
         maybeRecycleCachedBitmap()
+        val original = wallpaperBitmap ?: return
+        val matrix = Matrix()
+        matrix.postScale(finalScale, finalScale)
+        if (isFlipped) {
+            matrix.postScale(-1f, 1f, (original.width * finalScale) / 2f, (original.height * finalScale) / 2f)
+        }
         cachedBitmap =
-            wallpaperBitmap?.scale(height = viewHeight.roundToInt(), width = finalScaledWidth.roundToInt())
+            Bitmap.createBitmap(
+                original,
+                0,
+                0,
+                original.width,
+                original.height,
+                matrix,
+                true,
+            )
     }
 
     /**
@@ -143,7 +161,7 @@ class ScrollingWallpaperRenderer {
             if (maxScroll > 0) {
                 -xOffset * maxScroll
             } else {
-                (viewWidth - b.width * finalScale) / 2f
+                (viewWidth - b.width) / 2f
             }
 
         drawMatrix.reset()

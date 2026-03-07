@@ -76,8 +76,8 @@ class ScrollingWallpaperService : WallpaperService() {
                         val request = intent.getParcelableExtra("request", SetImageRequest::class.java)
 
                         DLog.i("WallpaperService", "Update received (Preview: $isPreview): $request")
-                        request?.uri?.let {
-                            loadWallpaper(it)
+                        request?.let { req ->
+                            loadWallpaper(req.uri, req.isFlipped)
                         }
                     }
                 }
@@ -186,12 +186,15 @@ class ScrollingWallpaperService : WallpaperService() {
          *
          * @param uri The URI of the image to load.
          */
-        private fun loadWallpaper(uri: Uri) {
+        private fun loadWallpaper(
+            uri: Uri,
+            flipped: Boolean = false,
+        ) {
             try {
                 contentResolver.openInputStream(uri)?.use { stream ->
                     val newBitmap = BitmapFactory.decodeStream(stream)
                     if (newBitmap != null) {
-                        renderer.prepareBitmap(newBitmap)
+                        renderer.prepareBitmap(newBitmap, flipped)
                         scheduleDraw()
                     }
                 }
