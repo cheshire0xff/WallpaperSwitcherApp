@@ -44,8 +44,8 @@ android {
         applicationId = "com.cheshire.wallpaperswitcher"
         minSdk = 35
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.8"
+        versionCode = 8
+        versionName = "1.8.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

@@ -41,11 +41,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asAndroidPath
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
@@ -58,7 +56,6 @@ fun NotchSettingsScreen(
 ) {
     val settings = viewModel.notchSettings
     var showUI by remember { mutableStateOf(true) }
-    val density = LocalDensity.current
 
     BackHandler(onBack = onBack)
 
@@ -71,68 +68,35 @@ fun NotchSettingsScreen(
                     detectTapGestures(onTap = { showUI = !showUI })
                 },
     ) {
-        val screenWidth = constraints.maxWidth.toFloat()
-        val screenHeight = constraints.maxHeight.toFloat()
-
-        // Reproduce exactly the ScrollingWallpaperRenderer scaling and positioning logic
-        val metadata = viewModel.currentMetadata
-        val dimensions = metadata.dimensions.split("x")
-        val iw = dimensions.getOrNull(0)?.toFloatOrNull() ?: 0f
-        val ih = dimensions.getOrNull(1)?.toFloatOrNull() ?: 0f
-
-        val (scale, tx) =
-            if (iw > 0f && ih > 0f) {
-                val scale = screenHeight / ih
-                val sw = iw * scale
-                val maxScroll = (sw - screenWidth).coerceAtLeast(0f)
-                // Use default 0.5 offset for preview to match typical service start state (centered horizontally)
-                val t = if (maxScroll > 0) -0.5f * maxScroll else (screenWidth - sw) / 2f
-                scale to t
-            } else {
-                1f to 0f
-            }
-
-        // Full Screen Background Wallpaper (positioned exactly like the renderer draws it: scaled to fit height)
         AsyncImage(
             model = viewModel.currentWallpaperUri,
             contentDescription = null,
+            contentScale = ContentScale.FillHeight,
             modifier =
                 Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = if (viewModel.currentWallpaperFlipped) -scale else scale
-                        scaleY = scale
-                    },
-            contentScale = ContentScale.Crop,
+                    .fillMaxSize(),
         )
 
         // Notch Overlay - Exactly matching image width and position, supporting rounded edges
         if (settings.enabled) {
+            val screenWidth = constraints.maxWidth.toFloat()
             val notchColor = Color(settings.color)
             val notchHeight = settings.height.toFloat()
             val cornerRadius = settings.cornerRadius.toFloat()
-
-            // For preview, we match the logic where notch width matches image width (or screen if wider)
-            val sw = if (iw > 0f && ih > 0f) iw * (screenHeight / ih) else screenWidth
-            val left = tx.coerceAtLeast(0f)
-            val right = (tx + sw).coerceAtMost(screenWidth)
-
             val notchPath = remember { Path() }
             val androidPath = remember(notchPath) { notchPath.asAndroidPath() }
             val rect = remember { RectF() }
 
             Canvas(modifier = Modifier.fillMaxSize()) {
-                if (right > left) {
-                    NotchPathUtil.updateNotchPath(
-                        path = androidPath,
-                        left = left,
-                        right = right,
-                        notchHeight = notchHeight,
-                        cornerRadius = cornerRadius,
-                        rect = rect,
-                    )
-                    drawPath(notchPath, notchColor)
-                }
+                NotchPathUtil.updateNotchPath(
+                    path = androidPath,
+                    left = 0f,
+                    right = screenWidth,
+                    notchHeight = notchHeight,
+                    cornerRadius = cornerRadius,
+                    rect = rect,
+                )
+                drawPath(notchPath, notchColor)
             }
         }
 
