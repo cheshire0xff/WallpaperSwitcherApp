@@ -5,7 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
-import kotlin.math.roundToInt
+import com.cheshire.wallpaperswitcher.data.NotchSettings
 
 /**
  * Helper class to handle wallpaper dimension calculations and matrix transformations.
@@ -13,6 +13,7 @@ import kotlin.math.roundToInt
  */
 class ScrollingWallpaperRenderer {
     private val paint = Paint().apply { isFilterBitmap = true }
+    private val notchPaint = Paint().apply { style = Paint.Style.FILL }
 
     // Original bitmap.
     private var wallpaperBitmap: Bitmap? = null
@@ -29,6 +30,8 @@ class ScrollingWallpaperRenderer {
     private var viewWidth = 0f
     private var viewHeight = 0f
     private var isFlipped = false
+
+    private var notchSettings = NotchSettings()
 
     /**
      * Updates the dimensions of the viewable area (the surface) and triggers a recalculation.
@@ -63,6 +66,10 @@ class ScrollingWallpaperRenderer {
         prepareCachedBitmap()
     }
 
+    fun updateNotchSettings(settings: NotchSettings) {
+        this.notchSettings = settings
+    }
+
     /**
      * Draws the wallpaper onto the provided canvas, applying the correct horizontal scroll offset.
      *
@@ -82,6 +89,36 @@ class ScrollingWallpaperRenderer {
         canvas.drawColor(Color.BLACK)
         if (matrix != null) {
             canvas.drawBitmap(bitmap, matrix, paint)
+        }
+
+        // Apply notch only if enabled
+        if (notchSettings.enabled) {
+            drawNotch(canvas, xOffset)
+        }
+    }
+
+    private fun drawNotch(
+        canvas: Canvas,
+        xOffset: Float,
+    ) {
+        notchPaint.color = notchSettings.color
+        val notchHeight = notchSettings.height.toFloat()
+
+        // Calculate current image horizontal position on screen
+        val tx =
+            if (maxScroll > 0) {
+                -xOffset * maxScroll
+            } else {
+                (viewWidth - finalScaledWidth) / 2f
+            }
+
+        // Draw notch as a rectangle matching the image width at the top
+        // It stays fixed at the top of the screen but its horizontal bounds match the image
+        val left = tx.coerceAtLeast(0f)
+        val right = (tx + finalScaledWidth).coerceAtMost(viewWidth)
+
+        if (right > left) {
+            canvas.drawRect(left, 0f, right, notchHeight, notchPaint)
         }
     }
 

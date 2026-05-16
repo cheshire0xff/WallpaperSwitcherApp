@@ -11,6 +11,7 @@ import android.service.wallpaper.WallpaperService
 import android.util.Log
 import android.view.Choreographer
 import android.view.SurfaceHolder
+import com.cheshire.wallpaperswitcher.data.NotchSettings
 import com.cheshire.wallpaperswitcher.data.SetImageRequest
 import com.cheshire.wallpaperswitcher.data.WallpaperRepository
 import com.cheshire.wallpaperswitcher.util.DLog
@@ -64,7 +65,7 @@ class ScrollingWallpaperService : WallpaperService() {
         private var isFramePending = false
 
         /**
-         * Listens for "UPDATE_WALLPAPER" broadcasts to refresh the current wallpaper image.
+         * Listens for broadcasts to refresh the current wallpaper or notch settings.
          */
         private val receiver =
             object : BroadcastReceiver() {
@@ -72,12 +73,21 @@ class ScrollingWallpaperService : WallpaperService() {
                     context: Context,
                     intent: Intent,
                 ) {
-                    if (intent.action == "com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER") {
-                        val request = intent.getParcelableExtra("request", SetImageRequest::class.java)
+                    when (intent.action) {
+                        "com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER" -> {
+                            val request = intent.getParcelableExtra("request", SetImageRequest::class.java)
+                            DLog.i("WallpaperService", "Update received (Preview: $isPreview): $request")
+                            request?.let { req ->
+                                loadWallpaper(req.uri, req.isFlipped)
+                            }
+                        }
 
-                        DLog.i("WallpaperService", "Update received (Preview: $isPreview): $request")
-                        request?.let { req ->
-                            loadWallpaper(req.uri, req.isFlipped)
+                        "com.cheshire.wallpaperswitcher.UPDATE_NOTCH" -> {
+                            val enabled = intent.getBooleanExtra("enabled", false)
+                            val color = intent.getIntExtra("color", 0xFF000000.toInt())
+                            val height = intent.getIntExtra("height", 100)
+                            renderer.updateNotchSettings(NotchSettings(enabled, color, height))
+                            scheduleDraw()
                         }
                     }
                 }
@@ -95,11 +105,17 @@ class ScrollingWallpaperService : WallpaperService() {
             // Suggest double width to encourage launchers to provide scroll offsets.
             wm.suggestDesiredDimensions(metrics.widthPixels * 2, metrics.heightPixels)
 
-            val filter = IntentFilter("com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER")
+            val filter =
+                IntentFilter().apply {
+                    addAction("com.cheshire.wallpaperswitcher.UPDATE_WALLPAPER")
+                    addAction("com.cheshire.wallpaperswitcher.UPDATE_NOTCH")
+                }
             registerReceiver(receiver, filter, RECEIVER_EXPORTED)
 
             serviceScope.launch {
                 val uri = repository.getCurrentWallpaperUri().first()
+                val notch = repository.getNotchSettings().first()
+                renderer.updateNotchSettings(notch)
                 uri?.let {
                     loadWallpaper(it)
                 }

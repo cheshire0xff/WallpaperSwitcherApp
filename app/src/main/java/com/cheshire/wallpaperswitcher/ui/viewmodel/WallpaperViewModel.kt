@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cheshire.wallpaperswitcher.data.NotchSettings
 import com.cheshire.wallpaperswitcher.data.SetImageRequest
 import com.cheshire.wallpaperswitcher.data.WallpaperRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -75,6 +76,9 @@ class WallpaperViewModel
         var toRemoveSortOption by mutableStateOf(SortOption.TIME_ADDED_DESC)
             private set
 
+        var notchSettings by mutableStateOf(NotchSettings())
+            private set
+
         // Map of filename -> Uri for quick lookup, derived from cachedImages
         private val imageMap by derivedStateOf {
             cachedImages.associate { it.second to it.first }
@@ -122,6 +126,7 @@ class WallpaperViewModel
                 favoriteNames = repository.getFavoriteImages()
                 toRemoveNames = repository.getToRemoveImages()
                 libraryTabIndex = repository.getLibraryTabIndex().first()
+                notchSettings = repository.getNotchSettings().first()
 
                 folderUri?.let { refreshCache() }
                 currentWallpaperUri?.let { updateMetadata(it) }
@@ -312,6 +317,13 @@ class WallpaperViewModel
 
         fun updateToRemoveSortOption(option: SortOption) {
             toRemoveSortOption = option
+        }
+
+        fun updateNotchSettings(settings: NotchSettings) {
+            notchSettings = settings
+            viewModelScope.launch {
+                repository.updateNotchSettings(settings)
+            }
         }
     }
 

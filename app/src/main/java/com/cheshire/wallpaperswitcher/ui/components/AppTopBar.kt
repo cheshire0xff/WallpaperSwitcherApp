@@ -21,14 +21,14 @@ fun AppTopBar(
     TopAppBar(
         title = { Text(currentScreen.title) },
         navigationIcon = {
-            if (currentScreen == Screen.Settings) {
+            if (currentScreen == Screen.Settings || currentScreen == Screen.Notch) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
             }
         },
         actions = {
-            if (currentScreen != Screen.Settings) {
+            if (currentScreen != Screen.Settings && currentScreen != Screen.Notch) {
                 IconButton(onClick = onOpenSettings) {
                     Icon(Icons.Default.Settings, contentDescription = "Settings")
                 }

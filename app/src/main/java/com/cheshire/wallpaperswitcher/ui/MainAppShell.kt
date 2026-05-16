@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FabPosition
@@ -23,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -32,6 +34,7 @@ import com.cheshire.wallpaperswitcher.ui.components.AppTopBar
 import com.cheshire.wallpaperswitcher.ui.screens.DashboardScreen
 import com.cheshire.wallpaperswitcher.ui.screens.ImageGridScreen
 import com.cheshire.wallpaperswitcher.ui.screens.LibraryScreen
+import com.cheshire.wallpaperswitcher.ui.screens.NotchSettingsScreen
 import com.cheshire.wallpaperswitcher.ui.screens.SettingsScreen
 import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
 
@@ -46,6 +49,7 @@ enum class Screen(
     Library("Library"),
     History("History"),
     Settings("Settings"),
+    Notch("Notch Settings"),
 }
 
 @Composable
@@ -82,14 +86,22 @@ fun MainAppShell(viewModel: WallpaperViewModel) {
 
     Scaffold(
         topBar = {
-            AppTopBar(
-                currentScreen = currentScreen,
-                onOpenSettings = { currentScreen = Screen.Settings },
-                onBack = { currentScreen = Screen.Dashboard },
-            )
+            if (currentScreen != Screen.Notch) {
+                AppTopBar(
+                    currentScreen = currentScreen,
+                    onOpenSettings = { currentScreen = Screen.Settings },
+                    onBack = {
+                        if (currentScreen == Screen.Notch) {
+                            currentScreen = Screen.Settings
+                        } else {
+                            currentScreen = Screen.Dashboard
+                        }
+                    },
+                )
+            }
         },
         bottomBar = {
-            if (currentScreen != Screen.Settings) {
+            if (currentScreen != Screen.Settings && currentScreen != Screen.Notch) {
                 AppBottomBar(
                     currentScreen = currentScreen,
                     viewModel = viewModel,
@@ -120,7 +132,8 @@ fun MainAppShell(viewModel: WallpaperViewModel) {
             }
         },
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
+        val contentPadding = if (currentScreen == Screen.Notch) PaddingValues(0.dp) else innerPadding
+        Box(modifier = Modifier.padding(contentPadding)) {
             NavigationHost(
                 currentScreen = currentScreen,
                 viewModel = viewModel,
@@ -188,7 +201,15 @@ fun NavigationHost(
                     )
                     context.startActivity(intent)
                 },
+                onOpenNotchSettings = { onNavigate(Screen.Notch) },
                 onBack = { onNavigate(Screen.Dashboard) },
+            )
+        }
+
+        Screen.Notch -> {
+            NotchSettingsScreen(
+                viewModel = viewModel,
+                onBack = { onNavigate(Screen.Settings) },
             )
         }
     }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
@@ -35,14 +36,21 @@ fun SettingsScreen(
     viewModel: WallpaperViewModel,
     onSelectFolder: () -> Unit,
     onRestartEngine: () -> Unit,
+    onOpenNotchSettings: () -> Unit,
     onBack: () -> Unit,
 ) {
     var showResetDialog by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
-    val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
-    val versionName = packageInfo.versionName ?: "1.0.4-stable"
+    val versionName =
+        remember(context) {
+            try {
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.7"
+            } catch (e: Exception) {
+                "1.7"
+            }
+        }
     val gitHash = BuildConfig.GIT_HASH
 
     Column(
@@ -61,6 +69,17 @@ fun SettingsScreen(
             },
             leadingContent = { Icon(Icons.Default.Folder, contentDescription = null) },
             modifier = Modifier.clickable { onSelectFolder() },
+        )
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+        // Section: Appearance
+        SectionHeader("Appearance")
+        ListItem(
+            headlineContent = { Text("Notch Settings") },
+            supportingContent = { Text("Configure virtual notch and colors") },
+            leadingContent = { Icon(Icons.Default.Brush, contentDescription = null) },
+            modifier = Modifier.clickable { onOpenNotchSettings() },
         )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
