@@ -1,6 +1,8 @@
 package com.cheshire.wallpaperswitcher.ui.screens
 
+import android.graphics.RectF
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -37,6 +39,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
@@ -45,6 +49,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
+import com.cheshire.wallpaperswitcher.util.NotchPathUtil
 
 @Composable
 fun NotchSettingsScreen(
@@ -101,17 +106,34 @@ fun NotchSettingsScreen(
             contentScale = ContentScale.Crop,
         )
 
-        // Notch Overlay - Exactly matching image width and position, with sharp rectangular edges
+        // Notch Overlay - Exactly matching image width and position, supporting rounded edges
         if (settings.enabled) {
-            val heightDp = with(density) { settings.height.toDp() }
+            val notchColor = Color(settings.color)
+            val notchHeight = settings.height.toFloat()
+            val cornerRadius = settings.cornerRadius.toFloat()
 
-            Box(
-                modifier =
-                    Modifier
-                        .align(Alignment.TopStart)
-                        .size(width = with(density) { screenWidth.toDp() }, height = heightDp)
-                        .background(Color(settings.color)),
-            )
+            // For preview, we match the logic where notch width matches image width (or screen if wider)
+            val sw = if (iw > 0f && ih > 0f) iw * (screenHeight / ih) else screenWidth
+            val left = tx.coerceAtLeast(0f)
+            val right = (tx + sw).coerceAtMost(screenWidth)
+
+            val notchPath = remember { Path() }
+            val androidPath = remember(notchPath) { notchPath.asAndroidPath() }
+            val rect = remember { RectF() }
+
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                if (right > left) {
+                    NotchPathUtil.updateNotchPath(
+                        path = androidPath,
+                        left = left,
+                        right = right,
+                        notchHeight = notchHeight,
+                        cornerRadius = cornerRadius,
+                        rect = rect,
+                    )
+                    drawPath(notchPath, notchColor)
+                }
+            }
         }
 
         if (showUI) {
@@ -165,6 +187,19 @@ fun NotchSettingsScreen(
                             value = settings.height.toFloat(),
                             onValueChange = { viewModel.updateNotchSettings(settings.copy(height = it.toInt())) },
                             valueRange = 10f..600f,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
+
+                        Text(
+                            text = "Rounding: ${settings.cornerRadius}px",
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.8f),
+                        )
+                        Slider(
+                            value = settings.cornerRadius.toFloat(),
+                            onValueChange = { viewModel.updateNotchSettings(settings.copy(cornerRadius = it.toInt())) },
+                            valueRange = 0f..200f,
                             modifier = Modifier.padding(horizontal = 16.dp),
                         )
 

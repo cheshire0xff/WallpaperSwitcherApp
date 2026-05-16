@@ -48,6 +48,7 @@ data class NotchSettings(
     val enabled: Boolean = false,
     val color: Int = 0xFF000000.toInt(),
     val height: Int = 100,
+    val cornerRadius: Int = 0,
 )
 
 @Singleton
@@ -68,6 +69,7 @@ class WallpaperRepository
             val NOTCH_ENABLED = booleanPreferencesKey("notch_enabled")
             val NOTCH_COLOR = intPreferencesKey("notch_color")
             val NOTCH_HEIGHT = intPreferencesKey("notch_height")
+            val NOTCH_CORNER_RADIUS = intPreferencesKey("notch_corner_radius")
         }
 
         private val fileMutexes = ConcurrentHashMap<String, Mutex>()
@@ -123,6 +125,7 @@ class WallpaperRepository
                     enabled = prefs[PreferenceKeys.NOTCH_ENABLED] ?: false,
                     color = prefs[PreferenceKeys.NOTCH_COLOR] ?: 0xFF000000.toInt(),
                     height = prefs[PreferenceKeys.NOTCH_HEIGHT] ?: 100,
+                    cornerRadius = prefs[PreferenceKeys.NOTCH_CORNER_RADIUS] ?: 0,
                 )
             }
 
@@ -131,12 +134,14 @@ class WallpaperRepository
                 prefs[PreferenceKeys.NOTCH_ENABLED] = settings.enabled
                 prefs[PreferenceKeys.NOTCH_COLOR] = settings.color
                 prefs[PreferenceKeys.NOTCH_HEIGHT] = settings.height
+                prefs[PreferenceKeys.NOTCH_CORNER_RADIUS] = settings.cornerRadius
             }
             val intent = Intent("com.cheshire.wallpaperswitcher.UPDATE_NOTCH")
             intent.setPackage(context.packageName)
             intent.putExtra("enabled", settings.enabled)
             intent.putExtra("color", settings.color)
             intent.putExtra("height", settings.height)
+            intent.putExtra("cornerRadius", settings.cornerRadius)
             context.sendBroadcast(intent)
         }
 

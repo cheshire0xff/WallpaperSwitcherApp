@@ -5,7 +5,10 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RectF
 import com.cheshire.wallpaperswitcher.data.NotchSettings
+import com.cheshire.wallpaperswitcher.util.NotchPathUtil
 
 /**
  * Helper class to handle wallpaper dimension calculations and matrix transformations.
@@ -32,6 +35,8 @@ class ScrollingWallpaperRenderer {
     private var isFlipped = false
 
     private var notchSettings = NotchSettings()
+    private val notchPath = Path()
+    private val cornerRect = RectF()
 
     /**
      * Updates the dimensions of the viewable area (the surface) and triggers a recalculation.
@@ -103,6 +108,7 @@ class ScrollingWallpaperRenderer {
     ) {
         notchPaint.color = notchSettings.color
         val notchHeight = notchSettings.height.toFloat()
+        val cornerRadius = notchSettings.cornerRadius.toFloat()
 
         // Calculate current image horizontal position on screen
         val tx =
@@ -118,7 +124,15 @@ class ScrollingWallpaperRenderer {
         val right = (tx + finalScaledWidth).coerceAtMost(viewWidth)
 
         if (right > left) {
-            canvas.drawRect(left, 0f, right, notchHeight, notchPaint)
+            NotchPathUtil.updateNotchPath(
+                path = notchPath,
+                left = left,
+                right = right,
+                notchHeight = notchHeight,
+                cornerRadius = cornerRadius,
+                rect = cornerRect,
+            )
+            canvas.drawPath(notchPath, notchPaint)
         }
     }
 

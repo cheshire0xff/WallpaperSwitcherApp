@@ -86,7 +86,8 @@ class ScrollingWallpaperService : WallpaperService() {
                             val enabled = intent.getBooleanExtra("enabled", false)
                             val color = intent.getIntExtra("color", 0xFF000000.toInt())
                             val height = intent.getIntExtra("height", 100)
-                            renderer.updateNotchSettings(NotchSettings(enabled, color, height))
+                            val cornerRadius = intent.getIntExtra("cornerRadius", 0)
+                            renderer.updateNotchSettings(NotchSettings(enabled, color, height, cornerRadius))
                             scheduleDraw()
                         }
                     }
