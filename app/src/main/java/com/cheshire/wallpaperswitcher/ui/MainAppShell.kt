@@ -29,10 +29,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.cheshire.wallpaperswitcher.service.ScrollingWallpaperService
 import com.cheshire.wallpaperswitcher.ui.components.AppBottomBar
 import com.cheshire.wallpaperswitcher.ui.components.AppTopBar
-import com.cheshire.wallpaperswitcher.ui.components.InformationDialog
 import com.cheshire.wallpaperswitcher.ui.screens.DashboardScreen
 import com.cheshire.wallpaperswitcher.ui.screens.ImageGridScreen
 import com.cheshire.wallpaperswitcher.ui.screens.LibraryScreen
+import com.cheshire.wallpaperswitcher.ui.screens.SettingsScreen
 import com.cheshire.wallpaperswitcher.ui.viewmodel.WallpaperViewModel
 
 /**
@@ -45,6 +45,7 @@ enum class Screen(
     Queue("Upcoming Queue"),
     Library("Library"),
     History("History"),
+    Settings("Settings"),
 }
 
 @Composable
@@ -52,7 +53,6 @@ fun MainAppShell(viewModel: WallpaperViewModel) {
     val context = LocalContext.current
     var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
     var isEngineEnabled by remember { mutableStateOf(isWallpaperEngineActive(context)) }
-    var showInformation by remember { mutableStateOf(false) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -80,44 +80,22 @@ fun MainAppShell(viewModel: WallpaperViewModel) {
             }
         }
 
-    if (showInformation) {
-        InformationDialog(
-            totalImages = viewModel.cachedImages.size,
-            availableSeenCount = viewModel.historyImages.size,
-            totalSeenCount = viewModel.seenImageNames.size,
-            availableFavoritesCount = viewModel.favoriteImages.size,
-            totalFavoritesCount = viewModel.favoriteNames.size,
-            availableToRemoveCount = viewModel.toRemoveImages.size,
-            totalToRemoveCount = viewModel.toRemoveNames.size,
-            appDataPath = viewModel.appDataDir,
-            folderUri = viewModel.folderUri,
-            onResetSeen = { viewModel.resetSeen() },
-            onDismiss = { showInformation = false },
-        )
-    }
-
     Scaffold(
         topBar = {
             AppTopBar(
                 currentScreen = currentScreen,
-                onShowInformation = { showInformation = true },
-                onChangeFolder = { launcher.launch(null) },
-                onRestartEngine = {
-                    val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
-                    intent.putExtra(
-                        WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
-                        ComponentName(context, ScrollingWallpaperService::class.java),
-                    )
-                    context.startActivity(intent)
-                },
+                onOpenSettings = { currentScreen = Screen.Settings },
+                onBack = { currentScreen = Screen.Dashboard },
             )
         },
         bottomBar = {
-            AppBottomBar(
-                currentScreen = currentScreen,
-                viewModel = viewModel,
-                onNavigate = { currentScreen = it },
-            )
+            if (currentScreen != Screen.Settings) {
+                AppBottomBar(
+                    currentScreen = currentScreen,
+                    viewModel = viewModel,
+                    onNavigate = { currentScreen = it },
+                )
+            }
         },
         floatingActionButtonPosition = FabPosition.Center,
         floatingActionButton = {
@@ -162,6 +140,7 @@ fun NavigationHost(
     onSelectFolder: () -> Unit,
     onNavigate: (Screen) -> Unit,
 ) {
+    val context = LocalContext.current
     when (currentScreen) {
         Screen.Dashboard -> {
             DashboardScreen(
@@ -194,6 +173,22 @@ fun NavigationHost(
                 viewModel = viewModel,
                 onBack = { onNavigate(Screen.Dashboard) },
                 initialHideToRemove = false,
+            )
+        }
+
+        Screen.Settings -> {
+            SettingsScreen(
+                viewModel = viewModel,
+                onSelectFolder = onSelectFolder,
+                onRestartEngine = {
+                    val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
+                    intent.putExtra(
+                        WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
+                        ComponentName(context, ScrollingWallpaperService::class.java),
+                    )
+                    context.startActivity(intent)
+                },
+                onBack = { onNavigate(Screen.Dashboard) },
             )
         }
     }
